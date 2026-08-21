@@ -15,6 +15,7 @@ import androidx.lifecycle.lifecycleScope
 import io.legado.app.R
 import io.legado.app.constant.AppLog
 import io.legado.app.exception.NoStackTraceException
+import io.legado.app.lib.theme.AppThemeInstaller
 import io.legado.app.utils.applyTint
 import io.legado.app.utils.registerForActivityResult
 import io.legado.app.utils.toastOnUi
@@ -37,6 +38,7 @@ class PermissionActivity : AppCompatActivity() {
 
     @SuppressLint("BatteryLife")
     override fun onCreate(savedInstanceState: Bundle?) {
+        AppThemeInstaller.install(this)
         super.onCreate(savedInstanceState)
         val rationale = intent.getStringExtra(KEY_RATIONALE)
         val requestCode = intent.getIntExtra(KEY_INPUT_PERMISSIONS_CODE, 1000)

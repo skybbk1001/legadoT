@@ -11,12 +11,12 @@ import java.io.File
 class SkinPilotWiringTest {
 
     @Test
-    fun `factory installs before super onCreate in BaseActivity`() {
+    fun `theme installer installs before super onCreate in BaseActivity`() {
         val src = readProjectFile("src/main/java/io/legado/app/base/BaseActivity.kt")
-        val install = src.indexOf("SkinInflaterFactory.install(this)")
+        val install = src.indexOf("AppThemeInstaller.install(this)")
         val superCreate = src.indexOf("super.onCreate(savedInstanceState)")
-        assertTrue("BaseActivity 未安装引擎", install > 0)
-        assertTrue("引擎须在 super.onCreate 前安装", install < superCreate)
+        assertTrue("BaseActivity 未安装统一主题入口", install > 0)
+        assertTrue("主题须在 super.onCreate 前安装", install < superCreate)
     }
 
     @Test

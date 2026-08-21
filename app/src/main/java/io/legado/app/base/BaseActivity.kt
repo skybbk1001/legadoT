@@ -18,16 +18,13 @@ import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.Toolbar
 import androidx.viewbinding.ViewBinding
-import com.google.android.material.color.DynamicColors
-import com.google.android.material.color.DynamicColorsOptions
 import io.legado.app.R
 import io.legado.app.constant.AppConst
 import io.legado.app.constant.AppLog
 import io.legado.app.constant.Theme
 import io.legado.app.help.config.AppConfig
 import io.legado.app.help.config.ThemeConfig
-import io.legado.app.lib.skin.SkinInflaterFactory
-import io.legado.app.lib.theme.ThemeStore
+import io.legado.app.lib.theme.AppThemeInstaller
 import io.legado.app.lib.theme.backgroundColor
 import io.legado.app.lib.theme.bottomBackground
 import io.legado.app.lib.theme.primaryColor
@@ -93,9 +90,7 @@ abstract class BaseActivity<VB : ViewBinding>(
     override fun onCreate(savedInstanceState: Bundle?) {
         window.decorView.disableAutoFill()
         initTheme()
-        // R2 换肤引擎:须先于 super.onCreate 占工厂位(AppCompat 让位并被委托);
-        // 弹窗/菜单/item 的 inflater 经 clone 链继承本工厂,全 app 一次安装
-        SkinInflaterFactory.install(this)
+        AppThemeInstaller.install(this)
         super.onCreate(savedInstanceState)
         setupSystemBar()
         setContentView(binding.root)
@@ -179,27 +174,10 @@ abstract class BaseActivity<VB : ViewBinding>(
                 window.decorView.applyBackgroundTint(backgroundColor)
             }
         }
-        applyDynamicColors()
         if (AppConfig.isEInkMode) {
             // eink:attr 控件(M3 按钮等)也压黑白,与 AppColorScheme eink 表一致
             // getTheme() 显式调用:构造参数 theme(constant.Theme)遮蔽了 Activity.theme
             getTheme().applyStyle(R.style.ThemeOverlay_App_EInk, true)
-        }
-    }
-
-    /**
-     * 用用户强调色作种子，注入 M3 动态 colorScheme，让纯 ?attr 着色的 M3 控件也跟随换肤。
-     * EInk 模式旁路（黑白不经动态取色）。
-     */
-    private fun applyDynamicColors() {
-        if (AppConfig.isEInkMode) return
-        kotlin.runCatching {
-            // 种子与 AppColorScheme 一致取强调色,保证 12+ attr 控件与代码染色控件同源
-            val seed = ThemeStore.accentColor(this)
-            val options = DynamicColorsOptions.Builder()
-                .setContentBasedSource(seed)
-                .build()
-            DynamicColors.applyToActivityIfAvailable(this, options)
         }
     }
 

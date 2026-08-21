@@ -23,10 +23,13 @@ import com.google.android.material.checkbox.MaterialCheckBox
 import com.google.android.material.materialswitch.MaterialSwitch
 import com.google.android.material.radiobutton.MaterialRadioButton
 import com.google.android.material.slider.Slider
+import com.google.android.material.tabs.TabLayout
 import io.legado.app.R
 import io.legado.app.constant.AppConst
 import io.legado.app.lib.theme.AppColorScheme
 import io.legado.app.lib.theme.accentColor
+import io.legado.app.lib.theme.backgroundColor
+import io.legado.app.lib.theme.tabTextColors
 import io.legado.app.lib.theme.view.ThemeCheckBox
 import io.legado.app.lib.theme.view.ThemeEditText
 import io.legado.app.lib.theme.view.ThemeRadioButton
@@ -74,6 +77,7 @@ class SkinInflaterFactory(activity: AppCompatActivity) : LayoutInflater.Factory2
                 ?: return null
             applyTypeDefaults(view)
             applyButtonStyleTint(view, attrs)
+            applyTabStyleTint(view, attrs)
             if (hasSkin) applySkinAttrs(view, ta)
             return view
         } finally {
@@ -166,8 +170,8 @@ class SkinInflaterFactory(activity: AppCompatActivity) : LayoutInflater.Factory2
 
     /**
      * M3 按钮 Text/Tonal/Outlined 三档按 style 声明代码施色(弹窗 footer 按钮排等复用)。
-     * 这三档原生纯 ?attr 取色,而 DynamicColors 注入有厂商门槛(华为/荣耀等不在
-     * 白名单,attr 回落 XML 预生成默认色板),故从 AppColorScheme 直出;禁用态按
+     * 这三档原生纯 ?attr 取色,而 API 26-29 无运行时颜色资源覆盖能力,
+     * attr 只能回落 XML 预生成默认色板,故从 AppColorScheme 直出;禁用态按
      * M3 规范 onSurface 12%/38%。精确 javaClass 匹配,子类自治;Filled 档与
      * Outlined.Compact 档各有属地施色(氛围页/阅读面板),不接管。
      */
@@ -223,6 +227,16 @@ class SkinInflaterFactory(activity: AppCompatActivity) : LayoutInflater.Factory2
                 view.rippleColor =
                     ColorStateList.valueOf(ColorUtils.withAlpha(scheme.onSecondaryContainer, 0.12f))
             }
+        }
+    }
+
+    private fun applyTabStyleTint(view: View, attrs: AttributeSet) {
+        if (view.javaClass != TabLayout::class.java) return
+        if (attrs.styleAttribute != R.style.Widget_App_TabLayout_Surface) return
+        val tabColors = tabTextColors(ColorUtils.isColorLight(view.context.backgroundColor))
+        (view as TabLayout).apply {
+            setSelectedTabIndicatorColor(view.context.accentColor)
+            setTabTextColors(tabColors.unselected, tabColors.selected)
         }
     }
 

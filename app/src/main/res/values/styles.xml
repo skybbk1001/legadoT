@@ -29,7 +29,7 @@
         <item name="colorPrimaryDark">@color/primaryDark</item>
         <item name="colorAccent">@color/accent</item>
         <!-- M3 完整默认色板:默认种子(md_theme_day/night_accent)预生成,与 AppColorScheme 运行时派生同源。
-             Android 12+ 会被 DynamicColors 按用户种子覆盖;12 以下 attr 控件用此静态兜底。 -->
+             API 30+ 由 AppThemeInstaller 覆盖这些资源;旧系统 attr 控件用此静态兜底。 -->
         <item name="colorOnPrimary">@color/m3_on_primary</item>
         <item name="colorPrimaryContainer">@color/m3_primary_container</item>
         <item name="colorOnPrimaryContainer">@color/m3_on_primary_container</item>
@@ -121,6 +121,9 @@
         <item name="tabTextColor">@color/secondaryText</item>
         <item name="tabRippleColor">@color/transparent</item>
     </style>
+
+    <!-- Surface-owned tabs: foreground is readable against the dialog/page surface. -->
+    <style name="Widget.App.TabLayout.Surface" parent="Widget.App.TabLayout" />
 
     <style name="Widget.App.BottomNavigation.ActiveIndicator.Transparent"
         parent="Widget.Material3.BottomNavigationView.ActiveIndicator">
@@ -280,7 +283,7 @@
         <item name="android:listPreferredItemPaddingEnd">16dp</item>
     </style>
 
-    <style name="Activity.Permission" parent="Theme.Material3.DayNight.NoActionBar">
+    <style name="Activity.Permission" parent="Base.AppTheme">
         <item name="android:windowBackground">@android:color/transparent</item>
         <item name="android:windowDisablePreview">true</item>
         <item name="android:windowIsTranslucent">true</item>
