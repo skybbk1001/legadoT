@@ -1,5 +1,6 @@
 package io.legado.app.web.mcp
 
+import io.legado.app.constant.AppLog
 import io.legado.app.data.entities.BookSource
 import org.htmlunit.corejs.javascript.Undefined
 import org.junit.Assert.assertEquals
@@ -76,6 +77,39 @@ class McpFormatTest {
         m["self"] = m
         val rendered = McpFormat.renderEvalResult(m)
         assertTrue(rendered.endsWith("(HashMap)"))
+    }
+
+    @Test
+    fun renderAppLogsShapesEachEntry() {
+        val entries = listOf(
+            AppLog.Entry(
+                id = 7,
+                time = 0L,
+                message = "多行\n消息",
+                tag = "某书源",
+            ),
+            AppLog.Entry(
+                id = 6,
+                time = 0L,
+                message = "请求失败",
+                throwable = IllegalStateException("boom"),
+                httpId = 12,
+            ),
+        )
+        val lines = McpFormat.renderAppLogs(entries).lines()
+        assertEquals(2, lines.size)
+        assertTrue(lines[0].startsWith("#7 1970-01-01T00:00:00Z [某书源] 多行 消息"))
+        assertTrue(lines[1].contains("httpLog #12"))
+        assertTrue(lines[1].contains("IllegalStateException: boom"))
+    }
+
+    @Test
+    fun renderAppLogsCategoryLabelFallback() {
+        val entry = AppLog.Entry(id = 1, time = 0L, message = "普通信息")
+        assertTrue(McpFormat.renderAppLogs(listOf(entry)).contains("[信息]"))
+        val error = AppLog.Entry(id = 2, time = 0L, message = "炸了", error = true)
+        assertTrue(McpFormat.renderAppLogs(listOf(error)).contains("[错误]"))
+        assertEquals("", McpFormat.renderAppLogs(emptyList()))
     }
 
     @Test

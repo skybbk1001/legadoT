@@ -22,7 +22,6 @@ import io.legado.app.model.AutoTaskProtocol
 import io.legado.app.utils.CronSchedule
 import io.legado.app.utils.getPrefBoolean
 import io.legado.app.utils.putPrefBoolean
-import io.legado.app.utils.stackTraceStr
 import io.legado.app.utils.startForegroundServiceCompat
 import io.legado.app.utils.startService
 import io.legado.app.utils.servicePendingIntent
@@ -77,7 +76,6 @@ class AutoTaskService : BaseService() {
 
     private var notificationContent = appCtx.getString(R.string.service_starting)
     private val timeFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
-    private val maxLogLength = 4000
     private val taskLock = Mutex()
     private var dataSyncLoopJob: Job? = null
 
@@ -476,40 +474,10 @@ class AutoTaskService : BaseService() {
         detail: String?,
         cost: Long,
         runAt: Long
-    ): String {
-        val time = formatLogTime(runAt)
-        val sb = StringBuilder()
-        sb.append("[OK] ").append(time).append('\n')
-        sb.append("耗时: ").append(cost).append("ms")
-        if (lines.isNotEmpty()) {
-            sb.append('\n').append("动作:")
-            lines.forEach { line ->
-                sb.append('\n').append("- ").append(line)
-            }
-        }
-        if (!detail.isNullOrBlank()) {
-            sb.append('\n').append("返回: ").append(detail)
-        }
-        val text = sb.toString().ifBlank { "执行完成" }
-        return if (text.length > maxLogLength) text.take(maxLogLength) else text
-    }
+    ): String = AutoTask.buildLastLog(lines, detail, cost, runAt)
 
-    private fun buildErrorLog(msg: String, error: Throwable?, runAt: Long): String {
-        val time = formatLogTime(runAt)
-        val detail = error?.stackTraceStr.orEmpty()
-        val sb = StringBuilder()
-        sb.append("[FAIL] ").append(time).append('\n')
-        sb.append("错误: ").append(msg)
-        if (detail.isNotBlank()) {
-            sb.append('\n').append("堆栈:").append('\n').append(detail)
-        }
-        val text = sb.toString()
-        return if (text.length > maxLogLength) text.take(maxLogLength) else text
-    }
-
-    private fun formatLogTime(time: Long): String {
-        return SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date(time))
-    }
+    private fun buildErrorLog(msg: String, error: Throwable?, runAt: Long): String =
+        AutoTask.buildErrorLog(msg, error, runAt)
 
     override fun startForegroundNotification() {
         notificationBuilder.setContentText(notificationContent)

@@ -23,7 +23,10 @@ object BookSourceController {
             } else returnData.setData(bookSources)
         }
 
-    fun saveSource(postData: String?): ReturnData {
+    /**
+     * [keepUserState] 为真时覆盖旧记录保留用户态字段(反复推送同一源调试的场景)。
+     */
+    fun saveSource(postData: String?, keepUserState: Boolean = false): ReturnData {
         val returnData = ReturnData()
         postData ?: return returnData.setErrorMsg("数据不能为空")
         val bookSource = GSON.fromJsonObject<BookSource>(postData).getOrNull()
@@ -31,6 +34,9 @@ object BookSourceController {
             if (TextUtils.isEmpty(bookSource.bookSourceName) || TextUtils.isEmpty(bookSource.bookSourceUrl)) {
                 returnData.setErrorMsg("源名称和URL不能为空")
             } else {
+                if (keepUserState) {
+                    preserveUserState(bookSource)
+                }
                 appDb.bookSourceDao.insert(bookSource)
                 returnData.setData("")
             }
@@ -38,6 +44,23 @@ object BookSourceController {
             returnData.setErrorMsg("转换源失败")
         }
         return returnData
+    }
+
+    /**
+     * 用户态字段不归源内容管,覆盖旧记录时保留(与编辑器保存同边界)。
+     * 分组仅在新内容未声明时沿用旧值。
+     */
+    private fun preserveUserState(source: BookSource) {
+        appDb.bookSourceDao.getBookSource(source.bookSourceUrl)?.let { old ->
+            source.enabled = old.enabled
+            source.enabledExplore = old.enabledExplore
+            source.customOrder = old.customOrder
+            source.weight = old.weight
+            source.respondTime = old.respondTime
+            if (source.bookSourceGroup.isNullOrBlank()) {
+                source.bookSourceGroup = old.bookSourceGroup
+            }
+        }
     }
 
     fun saveSources(postData: String?): ReturnData {
@@ -82,8 +105,7 @@ object BookSourceController {
 
     /**
      * 纯JS单文件源保存:body 为脚本原文,与导入同一条提取/校验路径。
-     * 脚本是元数据唯一真理源,不改写 lastUpdateTime;
-     * 用户态字段不归脚本管,覆盖旧记录时保留(与编辑器保存同边界)。
+     * 脚本是元数据唯一真理源,不改写 lastUpdateTime。
      */
     suspend fun saveJsSource(postData: String?): ReturnData {
         val returnData = ReturnData()
@@ -92,16 +114,7 @@ object BookSourceController {
         }
         return try {
             val source = JsSourceConfig.extract(postData, coroutineContext)
-            appDb.bookSourceDao.getBookSource(source.bookSourceUrl)?.let { old ->
-                source.enabled = old.enabled
-                source.enabledExplore = old.enabledExplore
-                source.customOrder = old.customOrder
-                source.weight = old.weight
-                source.respondTime = old.respondTime
-                if (source.bookSourceGroup.isNullOrBlank()) {
-                    source.bookSourceGroup = old.bookSourceGroup
-                }
-            }
+            preserveUserState(source)
             appDb.bookSourceDao.insert(source)
             returnData.setData(source)
         } catch (e: Exception) {

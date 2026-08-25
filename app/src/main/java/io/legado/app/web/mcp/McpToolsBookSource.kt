@@ -2,8 +2,10 @@ package io.legado.app.web.mcp
 
 import io.legado.app.api.controller.BookSourceController
 import io.legado.app.api.controller.HttpLogController
+import io.legado.app.constant.AppLog
 import io.legado.app.data.appDb
 import io.legado.app.data.entities.BookSource
+import io.legado.app.help.config.AppConfig
 import io.legado.app.help.http.CookieStore
 import io.legado.app.help.source.SourceHelp
 import io.legado.app.model.CheckSource
@@ -31,7 +33,7 @@ import splitties.init.appCtx
 import java.time.Instant
 
 /**
- * 书源 / HTTP 日志 / cookie / eval_js / 批量校验,共 13 工具。
+ * 书源 / HTTP 日志 / 应用日志 / cookie / eval_js / 批量校验,共 14 工具。
  * 共享基础设施(ok/err/debugMutex/progressTokenOf 等)在 McpToolServer.kt。
  */
 internal fun Server.registerBookSourceTools() {
@@ -65,7 +67,7 @@ internal fun Server.registerBookSourceTools() {
                     val saved = BookSourceController.saveJsSource(source).dataOrThrow() as BookSource
                     ok("已保存(js):${saved.bookSourceName}\nbookSourceUrl: ${saved.bookSourceUrl}")
                 } else {
-                    BookSourceController.saveSource(source).dataOrThrow()
+                    BookSourceController.saveSource(source, keepUserState = true).dataOrThrow()
                     val parsed = GSON.fromJsonObject<Map<String, Any>>(source).getOrNull()
                     val name = parsed?.get("bookSourceName")?.toString() ?: ""
                     val url = parsed?.get("bookSourceUrl")?.toString() ?: ""
@@ -311,6 +313,59 @@ internal fun Server.registerBookSourceTools() {
                     parts += listOf("", "-- 错误 --", r.error)
                 }
                 ok(parts.joinToString("\n"))
+            } catch (e: Exception) {
+                err(e.localizedMessage ?: e.toString())
+            }
+        }
+
+        addTool(
+            name = "get_app_logs",
+            description = "拉取阅读T的应用日志(最新在前,内存上限 300 条)。这里能看到调试管线之外的 java.log 输出、" +
+                "源报错与内部异常——debug_source 只覆盖一次调试会话,本工具覆盖 App 全局。" +
+                "非调试路径的 java.log 需在设置开启「记录日志」才入库。可按类别或关键词过滤。",
+            inputSchema = ToolSchema(
+                properties = buildJsonObject {
+                    putJsonObject("limit") {
+                        put("type", "integer")
+                        put("description", "条数,默认 50")
+                    }
+                    put("search", stringProp("消息/源名关键词过滤,大小写不敏感"))
+                    put(
+                        "category",
+                        stringProp("类别过滤:error|http|source|info,缺省不过滤")
+                    )
+                },
+                required = emptyList(),
+            ),
+            toolAnnotations = ToolAnnotations(readOnlyHint = true),
+        ) { request ->
+            try {
+                val limit = (request.arguments.int("limit") ?: 50).coerceIn(1, 300)
+                val search = request.arguments.str("search")?.lowercase()
+                val category = request.arguments.str("category")?.lowercase()
+                val wanted = when (category) {
+                    null, "" -> null
+                    "error" -> AppLog.Entry.Category.ERROR
+                    "http" -> AppLog.Entry.Category.HTTP
+                    "source" -> AppLog.Entry.Category.SOURCE
+                    "info" -> AppLog.Entry.Category.INFO
+                    else -> return@addTool err("参数category必须为 error|http|source|info")
+                }
+                val matched = AppLog.logs.asSequence()
+                    .filter { wanted == null || it.category == wanted }
+                    .filter { e ->
+                        search.isNullOrEmpty() ||
+                            e.message.lowercase().contains(search) ||
+                            e.tag?.lowercase()?.contains(search) == true
+                    }
+                    .take(limit)
+                    .toList()
+                val head = if (AppConfig.recordLog) {
+                    "最新 ${matched.size} 条(内存上限 ${AppLog.MAX_SIZE}):"
+                } else {
+                    "「记录日志」开关未开启,非调试路径的 java.log 不入库;以下为已记录的错误与内部日志:"
+                }
+                ok(McpFormat.truncate(head + "\n" + McpFormat.renderAppLogs(matched).ifEmpty { "(空)" }))
             } catch (e: Exception) {
                 err(e.localizedMessage ?: e.toString())
             }
@@ -584,7 +639,9 @@ internal fun Server.registerBookSourceTools() {
                         }
                     }
                     val progressToken = progressTokenOf(request)
-                    val finalRegex = Regex("成功|失败")
+                    // 终态判据必须锚 updateFinalMessage 独占的措辞:校验期 Debug.log 也把
+                    // 「≡函数执行成功:search」等短中途消息写进 debugMessageMap
+                    val finalRegex = Regex("校验成功|校验失败")
                     val done = mutableSetOf<String>()
                     val deadline = System.currentTimeMillis() + timeoutSec * 1000L
                     var timedOut = false

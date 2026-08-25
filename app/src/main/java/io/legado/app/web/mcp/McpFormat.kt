@@ -2,8 +2,10 @@ package io.legado.app.web.mcp
 
 import com.google.gson.GsonBuilder
 import com.google.gson.JsonParser
+import io.legado.app.constant.AppLog
 import io.legado.app.data.entities.BookSource
 import org.htmlunit.corejs.javascript.Undefined
+import java.time.Instant
 import kotlin.math.abs
 
 /**
@@ -85,6 +87,29 @@ object McpFormat {
             appendLine("正常 ${good.size}/${sources.size}:")
             if (good.isEmpty()) appendLine("(无)") else good.forEach { appendLine(it) }
         }.trimEnd()
+    }
+
+    /**
+     * 应用日志渲染。逐条 `#id [时间] [类别或源名] 消息`,异常首行附在末尾;
+     * 关联 HTTP 记录的条目标出 httpId,可转 get_http_log 深挖。
+     */
+    fun renderAppLogs(entries: List<AppLog.Entry>): String = entries.joinToString("\n") { e ->
+        val label = e.tag ?: when (e.category) {
+            AppLog.Entry.Category.ERROR -> "错误"
+            AppLog.Entry.Category.HTTP -> "HTTP"
+            AppLog.Entry.Category.SOURCE -> "源"
+            AppLog.Entry.Category.INFO -> "信息"
+        }
+        buildString {
+            append("#${e.id} ").append(Instant.ofEpochMilli(e.time))
+            append(" [").append(label).append("] ")
+            append(e.message.replace('\n', ' '))
+            e.httpId?.let { append(" | httpLog #").append(it) }
+            e.throwable?.let {
+                append(" | ").append(it.javaClass.simpleName)
+                it.localizedMessage?.let { m -> append(": ").append(m) }
+            }
+        }
     }
 
     fun renderEvalResult(result: Any?): String = when (result) {

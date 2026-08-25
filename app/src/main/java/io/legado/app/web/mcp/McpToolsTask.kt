@@ -245,17 +245,28 @@ private fun Server.serverAddRunAutoTask() {
             val elapsedMs = System.currentTimeMillis() - startMs
             if (outcome == null) {
                 deferred.cancel()
-                AutoTask.update(id) { it.copy(lastError = "手动运行超时 ${timeoutSec}s") }
-                return@addTool err("手动运行超时 ${timeoutSec}s")
+                val msg = "手动运行超时 ${timeoutSec}s"
+                val runAt = System.currentTimeMillis()
+                AutoTask.update(id) {
+                    it.copy(
+                        lastRunAt = runAt,
+                        lastResult = null,
+                        lastError = msg,
+                        lastLog = AutoTask.buildErrorLog(msg, null, runAt),
+                    )
+                }
+                return@addTool err(msg)
             }
             val failure = outcome.exceptionOrNull()
             if (failure != null) {
                 val msg = failure.localizedMessage ?: failure.toString()
+                val runAt = System.currentTimeMillis()
                 AutoTask.update(id) {
                     it.copy(
-                        lastRunAt = System.currentTimeMillis(),
+                        lastRunAt = runAt,
                         lastResult = null,
                         lastError = msg,
+                        lastLog = AutoTask.buildErrorLog(msg, failure, runAt),
                     )
                 }
                 return@addTool err("运行失败:$msg")
@@ -264,27 +275,22 @@ private fun Server.serverAddRunAutoTask() {
             val logLines = mutableListOf<String>()
             val handle = AutoTaskProtocol.handle(value, appCtx, rule.name) { logLines.add(it) }
             val detail = value?.toString()?.take(200)
-            val parts = mutableListOf("✓ ${rule.name} 完成(${elapsedMs}ms)")
-            if (logLines.isNotEmpty()) {
-                parts += listOf("", "-- 动作 --")
-                parts += logLines.map { "- $it" }
-            }
-            if (!handle.handled) {
-                parts += listOf("", "-- 提示 --", "脚本未返回 actions(无 refreshToc/notify 动作执行)")
-            }
-            if (!detail.isNullOrBlank()) {
-                parts += listOf("", "-- 返回 --", McpFormat.truncate(detail, 10_000))
-            }
-            val lastLog = McpFormat.truncate(parts.joinToString("\n"), 100_000)
+            val runAt = System.currentTimeMillis()
+            val lastLog = AutoTask.buildLastLog(logLines, detail, elapsedMs, runAt)
             AutoTask.update(id) {
                 it.copy(
-                    lastRunAt = System.currentTimeMillis(),
+                    lastRunAt = runAt,
                     lastResult = detail,
                     lastError = null,
                     lastLog = lastLog,
                 )
             }
-            ok(lastLog)
+            val hint = if (handle.handled) {
+                ""
+            } else {
+                "\n\n[脚本未返回 actions,无 refreshToc/notify 动作执行]"
+            }
+            ok(lastLog + hint)
         } catch (e: Exception) {
             err(e.localizedMessage ?: e.toString())
         }

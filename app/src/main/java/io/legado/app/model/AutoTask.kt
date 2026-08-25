@@ -10,13 +10,18 @@ import io.legado.app.utils.GSON
 import io.legado.app.utils.fromJsonArray
 import io.legado.app.utils.getPrefBoolean
 import io.legado.app.utils.mergeFilteredOrder
+import io.legado.app.utils.stackTraceStr
 import splitties.init.appCtx
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 object AutoTask {
 
     const val SOURCE_KEY = "auto_task"
     private const val BOOK_TASK_PREFIX = "book_update:"
     private const val KEY_RULES = "autoTaskRules"
+    private const val MAX_LOG_LENGTH = 4000
 
     const val DEFAULT_CRON = "*/30 * * * *"
 
@@ -58,6 +63,39 @@ object AutoTask {
             else -> trimmed
         }
     }
+
+    /** lastLog 格式对 cron 调度与手动运行(含 MCP run_auto_task)统一。 */
+    fun buildLastLog(
+        lines: List<String>,
+        detail: String?,
+        cost: Long,
+        runAt: Long,
+    ): String {
+        val sb = StringBuilder()
+        sb.append("[OK] ").append(formatLogTime(runAt)).append('\n')
+        sb.append("耗时: ").append(cost).append("ms")
+        if (lines.isNotEmpty()) {
+            sb.append('\n').append("动作:")
+            lines.forEach { sb.append('\n').append("- ").append(it) }
+        }
+        if (!detail.isNullOrBlank()) {
+            sb.append('\n').append("返回: ").append(detail)
+        }
+        return sb.toString().ifBlank { "执行完成" }.take(MAX_LOG_LENGTH)
+    }
+
+    fun buildErrorLog(msg: String, error: Throwable?, runAt: Long): String {
+        val sb = StringBuilder()
+        sb.append("[FAIL] ").append(formatLogTime(runAt)).append('\n')
+        sb.append("错误: ").append(msg)
+        error?.stackTraceStr?.takeIf { it.isNotBlank() }?.let {
+            sb.append('\n').append("堆栈:").append('\n').append(it)
+        }
+        return sb.toString().take(MAX_LOG_LENGTH)
+    }
+
+    private fun formatLogTime(time: Long): String =
+        SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date(time))
 
     fun start(context: Context) {
         AutoTaskService.start(context)

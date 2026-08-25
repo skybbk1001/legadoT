@@ -35,7 +35,7 @@ import splitties.init.appCtx
 
 /**
  * MCP 工具注册中枢,按领域拆分:
- *  - McpToolsBookSource:书源 / HTTP 日志 / cookie / eval_js / 批量校验(13)
+ *  - McpToolsBookSource:书源 / HTTP 日志 / 应用日志 / cookie / eval_js / 批量校验(14)
  *  - McpToolsTask:定时任务(5)
  *  - McpToolsTts:在线朗读引擎(5)
  * 本文件只保留共享基础设施:调试通道互斥、进度/日志通知、返回文本构造、帮助文档 resources。
