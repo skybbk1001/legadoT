@@ -1,5 +1,6 @@
 package io.legado.app.model.readaloud
 
+import io.legado.app.data.entities.RoleCast
 import io.legado.app.data.entities.TtsVoice
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -29,13 +30,13 @@ class RolePromptTest {
     }
 
     @Test
-    fun `user prompt numbers paragraphs with absolute indices`() {
+    fun `user prompt numbers paragraphs with absolute indices and their length`() {
         val prompt = RolePrompt.buildUser(
             listOf("第零段", "第一段", "第二段"), 1..2, emptyList()
         )
-        assertTrue(prompt.contains("[1] 第一段"))
-        assertTrue(prompt.contains("[2] 第二段"))
-        assertTrue("不该带上范围外的段落", !prompt.contains("[0]"))
+        assertTrue(prompt.contains("[1|len=3] 第一段"))
+        assertTrue(prompt.contains("[2|len=3] 第二段"))
+        assertTrue("不该带上范围外的段落", !prompt.contains("[0|"))
     }
 
     @Test
@@ -154,5 +155,16 @@ class RolePromptTest {
         val values = tail.takeWhile { it.isLetter() || it == '|' }.split('|')
         assertTrue("$prefix 后没有枚举出取值", values.size > 1)
         return values
+    }
+
+    @Test
+    fun `narrator synonyms are folded onto the narrator identity`() {
+        val json = """
+            {"roles":[{"name":"解说","gender":"unknown"},{"name":"林风","gender":"male"}],
+             "segments":[{"p":0,"s":0,"e":2,"r":"Narrator"},{"p":0,"s":2,"e":4,"r":"林风"}]}
+        """.trimIndent()
+        val parsed = RolePrompt.parse(json, 0..0)!!
+        assertEquals(listOf(RoleCast.NARRATOR, "林风"), parsed.segments.map { it.role })
+        assertEquals(listOf(RoleCast.NARRATOR, "林风"), parsed.roles.map { it.name })
     }
 }

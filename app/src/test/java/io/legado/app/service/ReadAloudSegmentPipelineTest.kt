@@ -59,6 +59,20 @@ class ReadAloudSegmentPipelineTest {
     }
 
     @Test
+    fun `a pending recast advances the cursor before invalidating the script`() {
+        val body = http.substringAfter("private fun applyPendingRebuild()").substringBefore("\n    }")
+        val advanceAt = body.indexOf("updateNextPos()")
+        val resetAt = body.indexOf("resetSpeechScript()")
+        assertTrue("重排缺游标推进", advanceAt >= 0)
+        assertTrue("重排缺脚本作废", resetAt >= 0)
+        // 作废后脚本退化为每段一个片段, 先作废会让 updateNextPos 直接跳过本段剩余片段
+        assertTrue("作废脚本早于推进游标", advanceAt < resetAt)
+        assertTrue("重排未清掉按旧配音生成的队列", body.contains("exoPlayer.clearMediaItems()"))
+        // 换章由 nextChapter 自行起播, 重排不得再叠一次 play
+        assertTrue("重排未按是否仍在本章分流", body.contains("if (inChapter)"))
+    }
+
+    @Test
     fun `the pause item is enqueued only when the slice is not the chapter last`() {
         val paths = listOf(
             "落盘" to http.substringAfter("private fun downloadAndPlayAudios()")

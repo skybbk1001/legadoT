@@ -24,6 +24,7 @@ import io.legado.app.help.config.AppConfig
 import io.legado.app.model.CacheBook
 import io.legado.app.model.ReadBook
 import io.legado.app.model.SourceCallBack
+import io.legado.app.model.readaloud.RoleAnnotator
 import io.legado.app.model.webBook.WebBook
 import io.legado.app.service.CacheBookService
 import io.legado.app.utils.onEachParallel
@@ -266,6 +267,7 @@ class MainViewModel(application: Application) : BaseViewModel(application) {
             appDb.bookDao.deleteNotShelfBook()
             appDb.roleCastDao.deleteOrphans()
             appDb.chapterRoleScriptDao.deleteOrphans()
+            appDb.chapterRoleScriptDao.trimToRecent(RoleAnnotator.CACHE_CHAPTERS_PER_BOOK)
             appDb.roleAliasDao.deleteOrphans()
         }
     }

@@ -58,15 +58,27 @@ object RoleCastManager {
         canonicalize(script, aliases)
     }
 
-    suspend fun mergeRole(bookUrl: String, aliasName: String, canonicalName: String) = withContext(IO) {
+    /**
+     * 把 [aliasName] 并入 [canonicalName], 别名的 casting 随之丢弃。
+     *
+     * @return false 表示名字为空或指向自身, 调用方无需提示
+     */
+    suspend fun mergeRole(
+        bookUrl: String,
+        aliasName: String,
+        canonicalName: String
+    ): Boolean = withContext(IO) {
         val alias = aliasName.trim()
         val existingAliases = appDb.roleAliasDao.getByBook(bookUrl)
             .associate { it.aliasName to it.canonicalName }
         val canonical = canonicalName(canonicalName.trim(), existingAliases)
-        require(alias.isNotBlank() && canonical.isNotBlank() && alias != canonical)
+        if (alias.isBlank() || canonical.isBlank() || alias == canonical) {
+            return@withContext false
+        }
         appDb.roleAliasDao.redirect(bookUrl, alias, canonical)
         appDb.roleAliasDao.insert(RoleAlias(bookUrl, alias, canonical))
         appDb.roleCastDao.delete(bookUrl, alias)
+        true
     }
 
     /**
@@ -186,10 +198,9 @@ object RoleCastManager {
         val narratorEngineId = narratorCast(bookUrl).ttsEngineId
         val usage = HashMap<String, Int>()
         existing.values.forEach { cast ->
-            cast.voice?.let {
-                val key = VoiceRef.key(cast.ttsEngineId, it)
-                usage[key] = (usage[key] ?: 0) + 1
-            }
+            // 引擎默认音色(voice 为 null)也占一个声音, 漏计会让后续角色全撞到它上面
+            val key = VoiceRef.key(cast.ttsEngineId, cast.voice)
+            usage[key] = (usage[key] ?: 0) + 1
         }
         val toWrite = ArrayList<RoleCast>()
         val pending = ArrayList<RoleProfile>()

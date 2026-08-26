@@ -11,6 +11,7 @@ import io.legado.app.constant.EventBus
 import io.legado.app.data.appDb
 import io.legado.app.data.entities.RoleCast
 import io.legado.app.databinding.DialogRoleCastBinding
+import io.legado.app.exception.NoStackTraceException
 import io.legado.app.lib.dialogs.alert
 import io.legado.app.lib.dialogs.selector
 import io.legado.app.model.ReadBook
@@ -139,12 +140,12 @@ class RoleCastDialog : BaseDialogFragment(R.layout.dialog_role_cast),
                 val tts = withContext(IO) {
                     appDb.httpTTSDao.get(cast.ttsEngineId)
                         ?: ReadAloud.httpTTS
-                        ?: throw IllegalStateException("朗读引擎不存在")
+                        ?: throw NoStackTraceException(getString(R.string.role_cast_engine_missing))
                 }
                 val bytes = withContext(IO) {
                     HttpTtsPreview.fetch(
                         tts = tts,
-                        text = "你好，这是音色试听。",
+                        text = getString(R.string.role_preview_text),
                         speechRate = AppConfig.speechRatePlay + 5,
                         voice = cast.voice
                     )
@@ -163,7 +164,7 @@ class RoleCastDialog : BaseDialogFragment(R.layout.dialog_role_cast),
                     setOnErrorListener { player, _, _ ->
                         player.release()
                         previewPlayer = null
-                        toastOnUi("音色试听失败")
+                        toastOnUi(R.string.role_preview_failed)
                         true
                     }
                     setOnPreparedListener { it.start() }
@@ -172,7 +173,7 @@ class RoleCastDialog : BaseDialogFragment(R.layout.dialog_role_cast),
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
             } catch (e: Exception) {
-                if (isAdded) toastOnUi(e.localizedMessage ?: "音色试听失败")
+                if (isAdded) toastOnUi(e.localizedMessage ?: getString(R.string.role_preview_failed))
             }
         }
     }
@@ -182,8 +183,14 @@ class RoleCastDialog : BaseDialogFragment(R.layout.dialog_role_cast),
         if (targets.isEmpty()) return
         requireContext().selector(getString(R.string.role_merge), targets.map { it.roleName }) { _, index ->
             lifecycleScope.launch {
-                withContext(IO) {
-                    RoleCastManager.mergeRole(bookUrl, cast.roleName, targets[index].roleName)
+                val merged = withContext(IO) {
+                    kotlin.runCatching {
+                        RoleCastManager.mergeRole(bookUrl, cast.roleName, targets[index].roleName)
+                    }
+                }
+                merged.onFailure {
+                    if (isAdded) toastOnUi(it.localizedMessage ?: getString(R.string.role_merge_failed))
+                    return@launch
                 }
                 postEvent(EventBus.ROLE_CAST_CHANGED, bookUrl)
                 refresh()

@@ -1631,7 +1631,10 @@ Placeholders:
     <string name="role_reanalyze_chapter">Reanalyze this chapter</string>
     <string name="role_reanalyze_scheduled">The chapter will be reanalyzed after the current segment</string>
     <string name="role_merge">Merge role</string>
+    <string name="role_merge_failed">Failed to merge role</string>
+    <string name="role_cast_engine_missing">Read-aloud engine not found</string>
+    <string name="role_preview_failed">Voice preview failed</string>
+    <string name="role_preview_text">Hello, this is a voice preview.</string>
     <string name="ai_role_consent_message">Role annotation sends the current chapter and the next chapter used for default prefetch to your configured external AI service. You are responsible for its privacy and cost. Allow sending?</string>
     <string name="role_cast_seen">Chapter %1$d</string>
-    <string name="role_preview_toast">Preview not yet available</string>
 </resources>

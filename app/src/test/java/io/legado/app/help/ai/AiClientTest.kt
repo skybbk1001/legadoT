@@ -54,6 +54,74 @@ class AiClientTest {
     }
 
     @Test
+    fun `a 4xx rejection retries once without response_format`() = runBlocking {
+        val bodies = mutableListOf<String>()
+        val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0).apply {
+            createContext("/v1/chat/completions") { exchange ->
+                bodies.add(exchange.requestBody.bufferedReader().use { it.readText() })
+                val ok = """{"choices":[{"message":{"content":"{\"roles\":[]}"}}]}"""
+                val payload = if (bodies.size == 1) {
+                    """{"error":{"message":"response_format is not supported"}}"""
+                } else {
+                    ok
+                }.toByteArray()
+                exchange.sendResponseHeaders(if (bodies.size == 1) 400 else 200, payload.size.toLong())
+                exchange.responseBody.use { it.write(payload) }
+            }
+            start()
+        }
+        try {
+            val content = AiClient.chatJson(
+                baseUrl = "http://127.0.0.1:${server.address.port}/v1",
+                apiKey = "",
+                model = "test-model",
+                systemPrompt = "system",
+                userPrompt = "user",
+                client = OkHttpClient()
+            )
+
+            assertEquals("""{"roles":[]}""", content)
+            assertEquals(2, bodies.size)
+            val retried = GSON.fromJson(bodies[1], Map::class.java)
+            assertTrue("重试仍带 response_format", !retried.containsKey("response_format"))
+            assertEquals("test-model", retried["model"])
+        } finally {
+            server.stop(0)
+        }
+    }
+
+    @Test
+    fun `a server error surfaces its status rather than a parse failure`() = runBlocking {
+        var calls = 0
+        val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0).apply {
+            createContext("/v1/chat/completions") { exchange ->
+                calls++
+                val payload = """{"error":{"message":"upstream down"}}""".toByteArray()
+                exchange.sendResponseHeaders(503, payload.size.toLong())
+                exchange.responseBody.use { it.write(payload) }
+            }
+            start()
+        }
+        try {
+            val error = kotlin.runCatching {
+                AiClient.chatJson(
+                    baseUrl = "http://127.0.0.1:${server.address.port}/v1",
+                    apiKey = "",
+                    model = "test-model",
+                    systemPrompt = "system",
+                    userPrompt = "user",
+                    client = OkHttpClient()
+                )
+            }.exceptionOrNull()
+
+            assertTrue("未带出状态码", error?.localizedMessage?.contains("503") == true)
+            assertEquals("5xx 不该重试", 1, calls)
+        } finally {
+            server.stop(0)
+        }
+    }
+
+    @Test
     fun `endpoint tolerates trailing slash and an already complete path`() {
         assertEquals(
             "https://api.deepseek.com/v1/chat/completions",

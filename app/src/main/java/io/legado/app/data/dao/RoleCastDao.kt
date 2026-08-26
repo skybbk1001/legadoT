@@ -12,6 +12,9 @@ interface RoleCastDao {
     @Query("select * from roleCasts where bookUrl = :bookUrl")
     fun getByBook(bookUrl: String): List<RoleCast>
 
+    @get:Query("select * from roleCasts")
+    val all: List<RoleCast>
+
     @Query("select * from roleCasts where bookUrl = :bookUrl and roleName = :roleName")
     fun get(bookUrl: String, roleName: String): RoleCast?
 

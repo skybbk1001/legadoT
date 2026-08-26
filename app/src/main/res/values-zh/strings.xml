@@ -1547,7 +1547,10 @@ Cron 使用 5 个字段：**分 时 日 月 周**
     <string name="role_reanalyze_chapter">重新分析本章</string>
     <string name="role_reanalyze_scheduled">将在下一片段重新分析</string>
     <string name="role_merge">合并角色</string>
+    <string name="role_merge_failed">合并角色失败</string>
+    <string name="role_cast_engine_missing">朗读引擎不存在</string>
+    <string name="role_preview_failed">音色试听失败</string>
+    <string name="role_preview_text">你好，这是音色试听。</string>
     <string name="ai_role_consent_message">角色标注会将当前章节正文及默认开启的下一章预取内容发送到你配置的外部 AI 服务。服务地址、费用和隐私由你自行确认。是否允许发送？</string>
     <string name="role_cast_seen">第 %1$d 章出场</string>
-    <string name="role_preview_toast">功能待实现</string>
 </resources>

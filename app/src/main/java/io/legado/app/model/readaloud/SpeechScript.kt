@@ -46,36 +46,51 @@ class SpeechScript(
     companion object {
 
         /**
-         * 校验并修复 LLM 返回的片段。任一段落不满足「有序、首尾相接、完整覆盖、非空、角色名非空」
-         * 即整段归旁白。空段落产出一个零长旁白片段, 使每个段落下标都持有片段。
+         * 校验并修复 LLM 返回的片段。段内空隙、重叠、角色名为空即整段归旁白;
+         * 越界的结束下标钳到段尾、结尾漏掉的字补一个旁白片段, 两类尾部偏差不废掉整段标注。
+         * 空段落产出一个零长旁白片段, 使每个段落下标都持有片段。
          *
-         * @return 按 (p, s) 有序, 每个段落下标恰好被其片段完整覆盖
+         * 尾部宽容的理由: LLM 对 CJK 段落的字符下标常差几位, 全段回退会让标注大面积失效。
+         *
+         * @return 按 (p, s) 有序, 每个段落下标恰好被其片段完整覆盖; 对自身输出幂等
          */
         fun sanitize(paragraphs: List<String>, raw: List<Segment>): List<Segment> {
             val grouped = raw.groupBy { it.p }
             val out = ArrayList<Segment>(paragraphs.size)
             for (p in paragraphs.indices) {
                 val text = paragraphs[p]
-                val whole = Segment(p, 0, text.length, RoleCast.NARRATOR)
                 val segs = grouped[p]?.sortedBy { it.s }
                 if (text.isEmpty() || segs.isNullOrEmpty()) {
-                    out.add(whole)
+                    out.add(Segment(p, 0, text.length, RoleCast.NARRATOR))
                     continue
                 }
-                var cursor = 0
-                var valid = true
-                for (seg in segs) {
-                    if (seg.s != cursor || seg.e <= seg.s ||
-                        seg.e > text.length || seg.role.isBlank()
-                    ) {
-                        valid = false
-                        break
-                    }
-                    cursor = seg.e
-                }
-                if (valid && cursor == text.length) out.addAll(segs) else out.add(whole)
+                val kept = keepCovering(p, text, segs)
+                out.addAll(kept ?: listOf(Segment(p, 0, text.length, RoleCast.NARRATOR)))
             }
             return out
+        }
+
+        /** @return null 表示该段落的片段无法修复成完整覆盖, 由调用方整段归旁白 */
+        private fun keepCovering(p: Int, text: String, segs: List<Segment>): List<Segment>? {
+            val kept = ArrayList<Segment>(segs.size + 1)
+            var cursor = 0
+            for (seg in segs) {
+                // 已覆盖到段尾, 其后的片段全部溢出段外
+                if (cursor >= text.length) break
+                val end = minOf(seg.e, text.length)
+                if (seg.s != cursor || end <= seg.s || seg.role.isBlank()) return null
+                kept.add(if (end == seg.e) seg else seg.copy(e = end))
+                cursor = end
+            }
+            if (cursor >= text.length) return kept
+            val last = kept.last()
+            // 尾巴接在旁白片段后就并进去, 免得多出一个只念标点的片段
+            if (last.role == RoleCast.NARRATOR) {
+                kept[kept.lastIndex] = last.copy(e = text.length)
+            } else {
+                kept.add(Segment(p, cursor, text.length, RoleCast.NARRATOR))
+            }
+            return kept
         }
 
         /** 无标注时的退化脚本: 每段一个旁白片段 */

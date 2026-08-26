@@ -58,35 +58,60 @@ object AiClient {
         userPrompt: String,
         client: OkHttpClient = okHttpClient
     ): String {
-        val body = GSON.toJson(
-            mapOf(
-                "model" to model,
-                "temperature" to 0.0,
-                "response_format" to mapOf("type" to "json_object"),
-                "messages" to listOf(
+        val call = client.newBuilder()
+            .callTimeout(300, TimeUnit.SECONDS)
+            .readTimeout(300, TimeUnit.SECONDS)
+            .build()
+        val first = post(call, baseUrl, apiKey, requestBody(model, systemPrompt, userPrompt, true))
+        // response_format 是 OpenAI 扩展, 本地推理与部分代理会以 4xx 拒收整个请求
+        val response = if (first.isSuccessful() || first.code() !in 400..499) {
+            first
+        } else {
+            post(call, baseUrl, apiKey, requestBody(model, systemPrompt, userPrompt, false))
+        }
+        val text = response.body ?: throw NoStackTraceException("AI 服务无响应体")
+        if (!response.isSuccessful()) {
+            throw NoStackTraceException("AI 服务返回 ${response.code()}: ${text.take(200)}")
+        }
+        return extractContent(text)
+            ?: throw NoStackTraceException("AI 服务返回异常: ${text.take(200)}")
+    }
+
+    private fun requestBody(
+        model: String,
+        systemPrompt: String,
+        userPrompt: String,
+        jsonMode: Boolean
+    ): String = GSON.toJson(
+        buildMap {
+            put("model", model)
+            put("temperature", 0.0)
+            if (jsonMode) put("response_format", mapOf("type" to "json_object"))
+            put(
+                "messages", listOf(
                     mapOf("role" to "system", "content" to systemPrompt),
                     mapOf("role" to "user", "content" to userPrompt)
                 )
             )
-        )
-        val response = client.newBuilder()
-            .callTimeout(300, TimeUnit.SECONDS)
-            .readTimeout(300, TimeUnit.SECONDS)
-            .build().newCallStrResponse {
-                tag(NoHttpLog::class.java, NoHttpLog)
-                try {
-                    url(endpointOf(baseUrl))
-                } catch (e: IllegalArgumentException) {
-                    throw NoStackTraceException("AI 服务地址异常: $baseUrl")
-                }
-                apiKey.takeIf { it.isNotBlank() }?.let {
-                    addHeader("Authorization", "Bearer $it")
-                }
-                postJson(body)
-            }
-        val text = response.body ?: throw NoStackTraceException("AI 服务无响应体")
-        return extractContent(text)
-            ?: throw NoStackTraceException("AI 服务返回异常: ${text.take(200)}")
+        }
+    )
+
+    private suspend fun post(
+        client: OkHttpClient,
+        baseUrl: String,
+        apiKey: String,
+        body: String
+    ) = client.newCallStrResponse {
+        tag(NoHttpLog::class.java, NoHttpLog)
+        try {
+            url(endpointOf(baseUrl))
+        } catch (e: IllegalArgumentException) {
+            throw NoStackTraceException("AI 服务地址异常: $baseUrl")
+        }
+        apiKey.takeIf { it.isNotBlank() }?.let {
+            addHeader("Authorization", "Bearer $it")
+        }
+        postJson(body)
     }
 
     suspend fun testConnection(): Result<String> = kotlin.runCatching {

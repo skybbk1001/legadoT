@@ -12,6 +12,9 @@ interface RoleAliasDao {
     @Query("select * from roleAliases where bookUrl = :bookUrl")
     fun getByBook(bookUrl: String): List<RoleAlias>
 
+    @get:Query("select * from roleAliases")
+    val all: List<RoleAlias>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     fun insert(vararg aliases: RoleAlias)
 

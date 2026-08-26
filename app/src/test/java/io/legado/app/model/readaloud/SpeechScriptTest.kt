@@ -104,7 +104,22 @@ class SpeechScriptTest {
     }
 
     @Test
-    fun `an incomplete tail makes the whole paragraph fall back to narrator`() {
+    fun `an incomplete tail is padded with a narrator segment`() {
+        val paragraphs = listOf("林风冷冷道：滚。")
+        val raw = listOf(Segment(0, 0, 6, "林风"))
+        val segments = SpeechScript.sanitize(paragraphs, raw)
+        assertWellFormed(paragraphs, segments)
+        assertEquals(
+            listOf(
+                Segment(0, 0, 6, "林风"),
+                Segment(0, 6, 8, RoleCast.NARRATOR)
+            ),
+            segments
+        )
+    }
+
+    @Test
+    fun `a narrator tail absorbs the uncovered rest instead of splitting`() {
         val paragraphs = listOf("林风冷冷道：滚。")
         val raw = listOf(Segment(0, 0, 6, RoleCast.NARRATOR))
         assertEquals(
@@ -114,12 +129,37 @@ class SpeechScriptTest {
     }
 
     @Test
-    fun `out of range empty or unnamed segments fall back to narrator`() {
+    fun `an end index past the paragraph is clamped to its length`() {
         val paragraphs = listOf("abc")
-        assertEquals(
-            listOf(Segment(0, 0, 3, RoleCast.NARRATOR)),
-            SpeechScript.sanitize(paragraphs, listOf(Segment(0, 0, 9, "林风")))
+        val segments = SpeechScript.sanitize(paragraphs, listOf(Segment(0, 0, 9, "林风")))
+        assertWellFormed(paragraphs, segments)
+        assertEquals(listOf(Segment(0, 0, 3, "林风")), segments)
+    }
+
+    @Test
+    fun `segments starting past the paragraph end are dropped`() {
+        val paragraphs = listOf("abc")
+        val segments = SpeechScript.sanitize(
+            paragraphs,
+            listOf(Segment(0, 0, 3, "林风"), Segment(0, 3, 6, "苏眉"))
         )
+        assertWellFormed(paragraphs, segments)
+        assertEquals(listOf(Segment(0, 0, 3, "林风")), segments)
+    }
+
+    @Test
+    fun `sanitize is idempotent over its own output`() {
+        val paragraphs = listOf("", "林风冷冷道：滚。", "他转身就走")
+        val once = SpeechScript.sanitize(
+            paragraphs,
+            listOf(Segment(1, 0, 6, RoleCast.NARRATOR), Segment(1, 6, 99, "林风"))
+        )
+        assertEquals(once, SpeechScript.sanitize(paragraphs, once))
+    }
+
+    @Test
+    fun `empty or unnamed segments fall back to narrator`() {
+        val paragraphs = listOf("abc")
         assertEquals(
             listOf(Segment(0, 0, 3, RoleCast.NARRATOR)),
             SpeechScript.sanitize(paragraphs, listOf(Segment(0, 0, 0, "林风"), Segment(0, 0, 3, "林风")))

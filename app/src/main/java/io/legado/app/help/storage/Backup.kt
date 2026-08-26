@@ -80,6 +80,8 @@ object Backup {
             "servers.json",
             "autoTask.json",
             "exploreContainer.json",
+            "roleCast.json",
+            "roleAlias.json",
             DirectLinkUpload.ruleFileName,
             ReadBookConfig.configFileName,
             ReadBookConfig.shareConfigFileName,
@@ -154,6 +156,9 @@ object Backup {
         writeListToJson(appDb.keyboardAssistsDao.all, "keyboardAssists.json", backupPath)
         writeListToJson(appDb.dictRuleDao.all, "dictRule.json", backupPath)
         writeListToJson(appDb.exploreContainerDao.all, "exploreContainer.json", backupPath)
+        // 章节标注缓存不备份: 可由 AI 重新生成, 且体量随阅读量线性增长
+        writeListToJson(appDb.roleCastDao.all, "roleCast.json", backupPath)
+        writeListToJson(appDb.roleAliasDao.all, "roleAlias.json", backupPath)
         GSON.toJson(appDb.autoTaskRuleDao.all()).let { json ->
             FileUtils.createFileIfNotExist(backupPath + File.separator + "autoTask.json")
                 .writeText(json)

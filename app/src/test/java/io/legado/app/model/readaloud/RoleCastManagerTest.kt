@@ -181,4 +181,16 @@ class RoleCastManagerTest {
             RoleCastManager.canonicalize(script, mapOf("甲" to "乙", "乙" to "甲"))
         )
     }
+
+    @Test
+    fun `a default voice already in use pushes the next role elsewhere`() {
+        // 引擎默认音色的 key 尾部为空, 与具名音色同域计数
+        val engineDefault = VoiceRef(1, null, "引擎")
+        val drawn = RoleCastManager.assign(
+            listOf(RoleProfile("甲", null, null)),
+            listOf(engineDefault, maleYoung),
+            mapOf(engineDefault.key to 1)
+        )
+        assertEquals(listOf(maleYoung), drawn.map { it.second })
+    }
 }

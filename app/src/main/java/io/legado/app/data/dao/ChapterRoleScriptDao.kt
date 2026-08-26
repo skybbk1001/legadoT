@@ -23,4 +23,16 @@ interface ChapterRoleScriptDao {
 
     @Query("delete from chapterRoleScripts where bookUrl not in (select bookUrl from books)")
     fun deleteOrphans()
+
+    /** 每本书只留最近标注的 :keep 章, 缓存随阅读量线性增长, 靠它收口 */
+    @Query(
+        "delete from chapterRoleScripts where rowid not in (" +
+                "select rowid from chapterRoleScripts as newest " +
+                "where (select count(*) from chapterRoleScripts as later " +
+                "where later.bookUrl = newest.bookUrl " +
+                "and (later.createTime > newest.createTime " +
+                "or (later.createTime = newest.createTime " +
+                "and later.chapterIndex > newest.chapterIndex))) < :keep)"
+    )
+    fun trimToRecent(keep: Int)
 }

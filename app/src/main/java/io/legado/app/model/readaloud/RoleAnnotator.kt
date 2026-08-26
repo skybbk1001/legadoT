@@ -20,6 +20,12 @@ import kotlinx.coroutines.withContext
  */
 object RoleAnnotator {
 
+    /** 每本书保留的章节标注上限, 由启动期清理落实 */
+    const val CACHE_CHAPTERS_PER_BOOK = 100
+
+    /** 连续失败到这个数就放弃整章, 避开鉴权/配额故障下的无谓等待 */
+    private const val MAX_CHUNK_FAILURES = 2
+
     fun contentMd5(paragraphs: List<String>): String =
         MD5Utils.md5Encode(paragraphs.joinToString("\n"))
 
@@ -67,6 +73,8 @@ object RoleAnnotator {
         if (!AiClient.isConfigured()) return null
         val known = LinkedHashSet<String>()
         val parts = ArrayList<RoleScript>()
+        // 单个分片失败只丢该片, 其段落在 sanitize 里退化为旁白, 整章标注不作废
+        var consecutiveFailures = 0
         for (range in RolePrompt.chunks(paragraphs)) {
             currentCoroutineContext().ensureActive()
             val part = try {
@@ -78,11 +86,19 @@ object RoleAnnotator {
                 // 取消 OkHttp 调用会以 IOException 冒出, ensureActive 把它还原成取消
                 currentCoroutineContext().ensureActive()
                 AppLog.put("角色标注失败\n${e.localizedMessage}", e)
-                return null
-            } ?: return null
+                null
+            }
+            if (part == null) {
+                consecutiveFailures++
+                // 连续失败多为鉴权或配额问题, 早退省掉剩余分片的等待与开销
+                if (consecutiveFailures >= MAX_CHUNK_FAILURES) return null
+                continue
+            }
+            consecutiveFailures = 0
             part.roles.forEach { known.add(it.name) }
             parts.add(part)
         }
+        if (parts.isEmpty()) return null
         val merged = RolePrompt.merge(parts)
         val segments = SpeechScript.sanitize(paragraphs, merged.segments)
         val roles = rolesIn(segments, merged.roles)

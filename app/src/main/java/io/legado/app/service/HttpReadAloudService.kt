@@ -150,26 +150,49 @@ class HttpReadAloudService : BaseReadAloudService(),
         if (exoPlayer.currentMediaItem == null) {
             resetSpeechScript()
             ttsCache.clear()
-            if (!pause) play()
+            if (pause) pageChanged = true else play()
         } else {
             rebuildAfterCurrentSegment = true
         }
     }
 
-    private fun updateNextPos() {
+    /** @return false 表示已跨出本章, 后续播放交给换章路径 */
+    private fun updateNextPos(): Boolean {
         val segs = currentScript().segmentsOf(nowSpeak)
         if (nowSegment < segs.lastIndex) {
             nowSegment++
-            return
+            return true
         }
         nowSegment = 0
         readAloudNumber += contentList[nowSpeak].length + 1 - paragraphStartPos
         paragraphStartPos = 0
         if (nowSpeak < contentList.lastIndex) {
             nowSpeak++
-        } else {
-            nextChapter(auto = true)
+            return true
         }
+        nextChapter(auto = true)
+        return false
+    }
+
+    /**
+     * 配音变更后重排: 先按旧脚本推进游标, 再作废缓存, 从新游标处重建队列。
+     * 顺序固定 —— 作废后 [currentScript] 退化为每段一个片段, 先推进才不会吞掉本段剩余片段。
+     * 已入队的音频按旧配音生成, 一并清掉; 暂停中只清队, 待 resume 时重建。
+     *
+     * @return true 表示本次回调已被重建接管, 调用方不再走常规推进
+     */
+    private fun applyPendingRebuild(): Boolean {
+        if (!rebuildAfterCurrentSegment) return false
+        rebuildAfterCurrentSegment = false
+        val inChapter = updateNextPos()
+        resetSpeechScript()
+        ttsCache.clear()
+        exoPlayer.stop()
+        exoPlayer.clearMediaItems()
+        if (inChapter) {
+            if (pause) pageChanged = true else play()
+        }
+        return true
     }
 
     private fun downloadAndPlayAudios() {
@@ -676,11 +699,7 @@ class HttpReadAloudService : BaseReadAloudService(),
                     return
                 }
                 playErrorNo = 0
-                if (rebuildAfterCurrentSegment) {
-                    rebuildAfterCurrentSegment = false
-                    resetSpeechScript()
-                    ttsCache.clear()
-                }
+                if (applyPendingRebuild()) return
                 updateNextPos()
                 exoPlayer.stop()
                 exoPlayer.clearMediaItems()
@@ -707,12 +726,7 @@ class HttpReadAloudService : BaseReadAloudService(),
             playErrorNo = 0
         }
         trimPlayedMediaItems()
-        if (rebuildAfterCurrentSegment && reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO) {
-            rebuildAfterCurrentSegment = false
-            updateNextPos()
-            resetSpeechScript()
-            ttsCache.clear()
-            if (!pause && nowSpeak < contentList.size) play()
+        if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO && applyPendingRebuild()) {
             return
         }
         if (mediaItem?.mediaId?.endsWith(":-1") == true) {

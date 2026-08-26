@@ -12,7 +12,7 @@ object RolePrompt {
 
     const val BATCH_SIZE = 60
     const val MAX_BATCH_CHARS = 12000
-    const val ANNOTATION_PROTOCOL_VERSION = "1"
+    const val ANNOTATION_PROTOCOL_VERSION = "2"
 
     const val DEFAULT_SYSTEM = """你是中文小说的角色标注器。输入是编号段落，输出 JSON。
 1. 把每个段落切成不重叠、无空隙、完整覆盖全段的片段
@@ -20,6 +20,7 @@ object RolePrompt {
 3. 心理独白按其主人的角色名标注
 4. 无法确定说话人的对话标 "旁白"
 5. s / e 是段内字符下标，前闭后开；p 用输入给出的段落编号
+6. 每段第一个片段的 s 为 0，最后一个片段的 e 等于该段输入给出的长度
 输出：{"roles":[{"name","gender","age"}],"segments":[{"p","s","e","r"}]}
 gender 取 male|female|unknown，age 取 child|young|middle|old|unknown"""
 
@@ -67,6 +68,7 @@ gender 取 male|female|unknown，age 取 child|young|middle|old|unknown"""
         return out
     }
 
+    /** 段落带出字符长度: 模型据此对齐末片段的 e, 省掉一轮尾部偏差 */
     fun buildUser(
         paragraphs: List<String>,
         range: IntRange,
@@ -80,7 +82,8 @@ gender 取 male|female|unknown，age 取 child|young|middle|old|unknown"""
         sb.append("段落：\n")
         for (p in range) {
             val text = paragraphs.getOrNull(p) ?: continue
-            sb.append('[').append(p).append("] ").append(text).append('\n')
+            sb.append('[').append(p).append("|len=").append(text.length).append("] ")
+                .append(text).append('\n')
         }
         return sb.toString()
     }
@@ -90,17 +93,28 @@ gender 取 male|female|unknown，age 取 child|young|middle|old|unknown"""
         val dto = GSON.fromJsonObject<ResponseDto>(stripFence(json)).getOrNull() ?: return null
         val segments = dto.segments.orEmpty().filterNotNull()
             .filter { it.p in range }
-            .map { Segment(it.p, it.s, it.e, it.r.orEmpty().trim()) }
+            .map { Segment(it.p, it.s, it.e, narratorAware(it.r.orEmpty().trim())) }
         val roles = dto.roles.orEmpty().filterNotNull().mapNotNull { role ->
             val name = role.name?.trim()
             if (name.isNullOrEmpty()) null else RoleProfile(
-                name,
+                narratorAware(name),
                 TtsVoice.normalizeGender(role.gender),
                 TtsVoice.normalizeAge(role.age)
             )
         }
         return RoleScript(segments, roles)
     }
+
+    /**
+     * 旁白的身份是 [RoleCast.NARRATOR] 这个字面量, 下游全靠它区分旁白与角色。
+     * 模型偶尔改用同义写法, 归一到该字面量, 免得旁白被当成一个普通角色去配音色
+     */
+    private fun narratorAware(name: String): String =
+        if (name.lowercase() in narratorAliases) RoleCast.NARRATOR else name
+
+    private val narratorAliases = setOf(
+        RoleCast.NARRATOR, "narrator", "旁白者", "解说", "叙述", "叙述者", "作者"
+    )
 
     /**
      * 去掉 markdown 代码围栏。AiClient 已请求 response_format=json_object,
