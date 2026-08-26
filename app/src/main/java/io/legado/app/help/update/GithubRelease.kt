@@ -10,6 +10,7 @@ import com.google.gson.annotations.SerializedName
 data class GithubRelease(
     @SerializedName("tag_name")
     val tagName: String = "",
+    val name: String = "",
     @SerializedName("html_url")
     val htmlUrl: String = "",
     @SerializedName("published_at")
@@ -25,7 +26,10 @@ data class GithubRelease(
         return UpdateManifest(
             source = "github",
             channel = if (isPreRelease) "beta" else "release",
-            versionName = UpdateManifestSelector.parseVersionName(tagName),
+            // beta 是滚动 tag,版本号取 release 标题(legado_app_3.26.081620);
+            // 产物名带分钟位,位宽与已装版本号不同,只作最后兜底
+            versionName = UpdateManifestSelector.parseVersionName(tagName)
+                .ifBlank { UpdateManifestSelector.parseVersionName(name) },
             tag = tagName,
             publishedAt = publishedAt,
             updateLog = body,

@@ -50,10 +50,18 @@ object UpdateManifestSelector {
         }
         val maxSize = maxOf(leftParts.size, rightParts.size)
         for (index in 0 until maxSize) {
-            val leftPart = leftParts.getOrElse(index) { 0L }
-            val rightPart = rightParts.getOrElse(index) { 0L }
-            if (leftPart != rightPart) {
-                return leftPart.compareTo(rightPart)
+            val leftPart = leftParts.getOrElse(index) { "0" }
+            val rightPart = rightParts.getOrElse(index) { "0" }
+            val diff = if (index == maxSize - 1) {
+                // 末段是 MMddHH[mm] 时间戳:位宽随流水线而异(release 6 位、beta 带分钟 8 位),
+                // 且月份首位可能为 0。按原字符串补零到同宽比较,同时保住月份高位与分钟精度
+                val width = maxOf(leftPart.length, rightPart.length)
+                leftPart.padEnd(width, '0').compareTo(rightPart.padEnd(width, '0'))
+            } else {
+                leftPart.toLong().compareTo(rightPart.toLong())
+            }
+            if (diff != 0) {
+                return diff
             }
         }
         return 0
@@ -140,10 +148,10 @@ object UpdateManifestSelector {
         }
     }
 
-    private fun String.toVersionParts(): List<Long> {
+    private fun String.toVersionParts(): List<String> {
         if (isBlank()) return emptyList()
         return split('.')
-            .mapNotNull { it.toLongOrNull() }
+            .filter { it.toLongOrNull() != null }
     }
 
     private fun UpdateManifest.Artifact.resolvedAbi(): String {

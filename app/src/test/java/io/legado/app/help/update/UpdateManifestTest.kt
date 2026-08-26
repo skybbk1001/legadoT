@@ -235,6 +235,114 @@ class UpdateManifestTest {
     }
 
     @Test
+    fun toUpdateResult_prefersManifestArtifactVersionOverShorterVersionName() {
+        // beta 清单 versionName 为 10 位(3.26.081620),产物名为 12 位(3.26.08162006);
+        // 已装 12 位 release(3.26.081812)时按位比对必须判定不更新
+        val manifest = UpdateManifest(
+            channel = "beta",
+            versionName = "3.26.081620",
+            tag = "beta",
+            artifacts = listOf(
+                UpdateManifest.Artifact(
+                    abi = "arm64-v8a",
+                    fileName = "legado_app_3.26.08162006_arm64-v8a_release.apk",
+                    url = "https://example.com/v8.apk"
+                )
+            )
+        )
+
+        val result = UpdateManifestSelector.toUpdateResult(
+            manifest = manifest,
+            currentVersionName = "3.26.081812",
+            supportedAbis = listOf("arm64-v8a")
+        )
+
+        assertTrue(result is UpdateManifestResult.NoUpdate)
+    }
+
+    @Test
+    fun compareVersionName_alignsTimestampPartsOfDifferentWidth() {
+        assertTrue(UpdateManifestSelector.compareVersionName("3.26.081620", "3.26.081812") < 0)
+        assertTrue(UpdateManifestSelector.compareVersionName("3.26.08162006", "3.26.081812") < 0)
+        assertTrue(UpdateManifestSelector.compareVersionName("3.26.081812", "3.26.08162006") > 0)
+        assertEquals(0, UpdateManifestSelector.compareVersionName("3.26.081620", "3.26.08162000"))
+        // 8 月与 10 月:月份首位为 0,补零对齐不能吃掉高位
+        assertTrue(UpdateManifestSelector.compareVersionName("3.26.101620", "3.26.08162006") > 0)
+        assertTrue(UpdateManifestSelector.compareVersionName("3.26.08162006", "3.26.101620") < 0)
+        // 同日同时,beta 带分钟位视为更新
+        assertTrue(UpdateManifestSelector.compareVersionName("3.26.08181206", "3.26.081812") > 0)
+        // 跨年:年份段仍按数值比较
+        assertTrue(UpdateManifestSelector.compareVersionName("3.27.010100", "3.26.123123") > 0)
+    }
+
+    @Test
+    fun toUpdateResult_installedBetaStillGetsNewerRelease() {
+        // 反向保护:已装 12 位 beta 产物版本号时,6 位的新 release 仍须判定为更新
+        val manifest = UpdateManifest(
+            channel = "release",
+            versionName = "3.26.081812",
+            tag = "3.26.081812",
+            artifacts = listOf(
+                UpdateManifest.Artifact(
+                    abi = "arm64-v8a",
+                    fileName = "legado_app_3.26.081812_arm64-v8a.apk",
+                    url = "https://example.com/v8.apk"
+                )
+            )
+        )
+
+        val result = UpdateManifestSelector.toUpdateResult(
+            manifest = manifest,
+            currentVersionName = "3.26.08162006",
+            supportedAbis = listOf("arm64-v8a")
+        )
+
+        assertTrue(result is UpdateManifestResult.HasUpdate)
+    }
+
+    @Test
+    fun githubRelease_readsVersionFromReleaseNameWhenTagIsNotVersioned() {
+        val release = GithubRelease(
+            tagName = "beta",
+            name = "legado_app_3.26.081620",
+            isPreRelease = true,
+            assets = listOf(
+                GithubRelease.Asset(
+                    apkUrl = "https://github.com/example/v8.apk",
+                    name = "legado_app_3.26.08162006_arm64-v8a_release.apk",
+                    state = "uploaded"
+                )
+            )
+        )
+
+        assertEquals("3.26.081620", release.toUpdateManifest().versionName)
+    }
+
+    @Test
+    fun toUpdateResult_betaTagIsNotNewerThanInstalledRelease() {
+        val release = GithubRelease(
+            tagName = "beta",
+            name = "legado_app_3.26.081620",
+            isPreRelease = true,
+            assets = listOf(
+                GithubRelease.Asset(
+                    apkUrl = "https://github.com/example/v8.apk",
+                    name = "legado_app_3.26.08162006_arm64-v8a_release.apk",
+                    state = "uploaded"
+                )
+            )
+        )
+
+        val result = UpdateManifestSelector.toUpdateResult(
+            manifest = release.toUpdateManifest(),
+            currentVersionName = "3.26.081812",
+            supportedAbis = listOf("arm64-v8a")
+        )
+
+        assertTrue(result is UpdateManifestResult.NoUpdate)
+    }
+
+    @Test
     fun githubRelease_skipsNotUploadedAssets() {
         val release = GithubRelease(
             tagName = "3.26.061010",
