@@ -160,12 +160,24 @@ jobs:
             exit 1
           fi
 
+      - name: Write Version Metadata
+        run: |
+          # 必须在本 job 计算:此处 checkout 用 fetch-depth 0,与 build.gradle 的
+          # versionCode(20000 + rev-list 全量计数)同源;prerelease job 是浅检出会算少
+          version_code=$((20000 + $(git rev-list HEAD --count)))
+          cat > ${{ github.workspace }}/apk/version.json <<EOF
+          {"versionCode":${version_code},"versionName":"${{ env.VERSION }}","channel":"beta"}
+          EOF
+          cat ${{ github.workspace }}/apk/version.json
+
       - name: Upload App To Artifact
         uses: actions/upload-artifact@v4
         with:
           name: legado.${{ env.product }}.${{ env.type }}
           if-no-files-found: ignore
-          path: ${{ github.workspace }}/apk/*.apk
+          path: |
+            ${{ github.workspace }}/apk/*.apk
+            ${{ github.workspace }}/apk/version.json
 
       - name: Upload Mapping File To Artifact
         uses: actions/upload-artifact@v4
@@ -204,6 +216,8 @@ jobs:
       - working-directory: apk/
         run: |
           mv */*.apk .
+          # version.json 与 apk 同在构建产物目录,须一并提出再清理子目录
+          mv */version.json . 2>/dev/null || true
           rm -rf */
 
           for file in `ls *.apk`; do
@@ -234,7 +248,7 @@ jobs:
           tag: "beta"
           bodyFile: ${{ github.workspace }}/release.md
           prerelease: true
-          artifacts: ${{ github.workspace }}/apk/*.apk
+          artifacts: "${{ github.workspace }}/apk/*.apk,${{ github.workspace }}/apk/version.json"
 
   lanzou:
     needs: [ prepare, build ]

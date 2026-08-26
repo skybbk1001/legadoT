@@ -276,6 +276,33 @@ class UpdateManifestTest {
     }
 
     @Test
+    fun toUpdateResult_versionCodeWinsOverVersionNameWidth() {
+        // 服务端下发 versionCode 后不再依赖版本名位宽:beta 清单的 versionCode 更小即判定不更新
+        val manifest = UpdateManifest(
+            channel = "beta",
+            versionName = "3.26.08162006",
+            versionCode = 27055L,
+            tag = "beta",
+            artifacts = listOf(
+                UpdateManifest.Artifact(
+                    abi = "arm64-v8a",
+                    fileName = "legado_app_3.26.08162006_arm64-v8a_release.apk",
+                    url = "https://example.com/v8.apk"
+                )
+            )
+        )
+
+        val result = UpdateManifestSelector.toUpdateResult(
+            manifest = manifest,
+            currentVersionName = "3.26.081812",
+            currentVersionCode = 27080L,
+            supportedAbis = listOf("arm64-v8a")
+        )
+
+        assertTrue(result is UpdateManifestResult.NoUpdate)
+    }
+
+    @Test
     fun toUpdateResult_installedBetaStillGetsNewerRelease() {
         // 反向保护:已装 12 位 beta 产物版本号时,6 位的新 release 仍须判定为更新
         val manifest = UpdateManifest(

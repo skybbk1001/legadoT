@@ -113,6 +113,16 @@ jobs:
             fi
             cp "$file" ${{ github.workspace }}/apk/legado_${{ env.product }}_${{ env.VERSION }}_${abi}.apk
           done
+
+      - name: Write Version Metadata
+        run: |
+          # 与 app/build.gradle 的 versionCode 同式(20000 + rev-list 全量计数),
+          # 供更新清单直接下发 versionCode,免去按版本名字符串比对
+          version_code=$((20000 + $(git rev-list HEAD --count)))
+          cat > ${{ github.workspace }}/apk/version.json <<EOF
+          {"versionCode":${version_code},"versionName":"${{ env.VERSION }}","channel":"release"}
+          EOF
+          cat ${{ github.workspace }}/apk/version.json
           
       - name: Upload App To Artifact
         uses: actions/upload-artifact@v4
@@ -129,7 +139,9 @@ jobs:
           body_path: ${{ github.workspace }}/CHANGELOG.md
           draft: false
           prerelease: false
-          files: ${{ github.workspace }}/apk/legado_app_*.apk
+          files: |
+            ${{ github.workspace }}/apk/legado_app_*.apk
+            ${{ github.workspace }}/apk/version.json
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       
