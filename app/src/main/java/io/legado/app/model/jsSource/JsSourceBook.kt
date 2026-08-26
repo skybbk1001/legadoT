@@ -20,7 +20,7 @@ import splitties.init.appCtx
 import kotlin.coroutines.coroutineContext
 
 /**
- * 纯JS源抓取(spec §5),搜索/发现/详情/目录/正文与 WebBook 入口同构;
+ * JS 源抓取(spec §5),搜索/发现/详情/目录/正文与 WebBook 入口同构;
  * Debug/CheckSource/换源/缓存只经 WebBook,分派后自动继承。
  */
 object JsSourceBook {

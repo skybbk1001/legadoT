@@ -39,7 +39,7 @@ import java.time.Instant
 internal fun Server.registerBookSourceTools() {
         addTool(
             name = "save_source",
-            description = "推送单个书源到运行中的阅读T。纯JS单文件源发脚本原文(App 侧校验必备函数并提取元数据,报错原样返回);" +
+            description = "推送单个书源到运行中的阅读T。JS 源发脚本原文(App 侧校验必备函数并提取元数据,报错原样返回);" +
                 "声明式源发 BookSource JSON 对象。同 bookSourceUrl 重推即覆盖,App 内的分组/启用等用户态字段保留。" +
                 "返回 bookSourceUrl,即 debug_source 的 url 参数。",
             inputSchema = ToolSchema(
@@ -374,7 +374,7 @@ internal fun Server.registerBookSourceTools() {
         addTool(
             name = "set_http_log_recording",
             description = "远程开关阅读T的「记录HTTP日志」,与 App 设置页开关同步。开启后 App 发出的请求才会被记录(get_http_logs 可查);" +
-                "调试深挖前开启,收尾时关闭。状态持久在 App 设置里,非会话态;切换不清空已有记录。",
+                "调试深挖前开启。状态持久在 App 设置里,非会话态;切换不清空已有记录。",
             inputSchema = ToolSchema(
                 properties = buildJsonObject {
                     putJsonObject("enabled") {

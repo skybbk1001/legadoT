@@ -38,7 +38,7 @@ import kotlinx.coroutines.withContext
 import splitties.views.bottomPadding
 
 /**
- * 纯JS单文件源编辑器(spec §5):整页 CodeMirror(保活 WebView 池,与字段弹窗共用),
+ * JS 源编辑器(spec §5):整页 CodeMirror(保活 WebView 池,与字段弹窗共用),
  * 行号/折叠/搜索/格式化/语法检查全套;池被占用或 boot 失败回退原生 CodeView。
  * 脚本是元数据唯一真理源,保存=JsSourceConfig.extract 重提 config 覆盖元字段
  * (enabled/customOrder 等用户态保留)。

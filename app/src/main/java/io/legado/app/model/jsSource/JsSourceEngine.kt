@@ -22,7 +22,7 @@ import org.htmlunit.corejs.javascript.Function as JsFunction
 import kotlin.coroutines.CoroutineContext
 
 /**
- * 纯JS单文件源执行器(spec §2)。
+ * JS 源执行器(spec §2)。
  * 每次调用新建 scope(并发隔离):绑定 → 挂共享原型 → eval 主脚本 → eval 调用表达式。
  * 只走 eval 通道(allowScriptRun 正确开闸;invokeMethod 无先例且闸门不开,见 spec §7-4)。
  * args 以绑定进 scope,既是函数参数也是环境绑定,与声明式源 key/page/book 惯例一致。

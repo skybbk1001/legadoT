@@ -50,7 +50,7 @@
 **2026/07/21**
 
 书源/规则
-* 纯JS单文件书源补齐发现(exploreUrl+explore)、登录(loginUi+login)、段评(getReviewSummary/Detail)
+* JS源补齐发现(exploreUrl+explore)、登录(loginUi+login)、段评(getReviewSummary/Detail)
 * JS源模板与文档启用ES6+写法(let/const、箭头函数、模板字符串、解构等)，引擎升级5.3.0补齐剩余参数/剩余解构
 * JS源编辑页切换CodeMirror编辑器，调试按钮提级到工具栏，单选导出/分享.js原文
 * 新增MCP服务：设置中开启后AI助手可直连App保存/调试/管理书源、查看HTTP日志
@@ -73,7 +73,7 @@
 **2026/07/13**
 * 主题系统升级：内置15套预设主题、壁纸动态取色跟随(Android 12+)、全新取色器
 * 详情页、音频播放页、主书架、阅读器菜单四大界面重做
-* 新增纯JS单文件书源：单个脚本自带search/getChapters/getContent函数，配套专用编辑器
+* 新增JS源：单个脚本自带search/getChapters/getContent函数，配套专用编辑器
 * 发现页容器化重构：容器卡片流+缓存优先加载+管理页
 * 听书：翻页不打断朗读、朗读悬浮胶囊、快捷切换引擎、按集数停止
 * 新增java.singleFlight/lock/tick并发方法，showBrowser支持可展开高度

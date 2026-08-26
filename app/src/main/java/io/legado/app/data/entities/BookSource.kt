@@ -101,7 +101,7 @@ data class BookSource(
     var customButton: Boolean = false,
     // 段评规则
     var ruleReview: ReviewRule? = null,
-    // 纯JS单文件源主脚本;非空即为JS源(spec: docs/superpowers/specs/2026-07-07-js-single-file-source-design.md)
+    // JS 源主脚本;非空即为JS源(spec: docs/superpowers/specs/2026-07-07-js-single-file-source-design.md)
     var mainJs: String? = null,
 ) : Parcelable, BaseSource {
 

@@ -14,7 +14,7 @@ import org.htmlunit.corejs.javascript.Function as JsFunction
 import kotlin.coroutines.CoroutineContext
 
 /**
- * 纯JS单文件源的 config 提取与校验(spec §5)。
+ * JS 源的 config 提取与校验(spec §5)。
  * 无能力 scope:仅标准库原型,不注入 java/source/cookie/cache 也不挂 CryptoJS——
  * 顶层只有声明、函数体不执行,导入预览阶段执行用户脚本因此无 IO 能力。
  * 脚本是元数据唯一真理源:保存/导入都经本提取覆盖 BookSource 元字段。

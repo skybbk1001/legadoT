@@ -583,7 +583,7 @@ java.openUrl(url:String,mimeType:String)
 // legado:// 或 yuedu:// 导入链接直开应用内导入页(导入页自带确认)
 ```
 
-## 纯JS单文件书源
+## JS 源
 
 > 与上面"书源规则中嵌入 `<js>`/`{{}}`"不同：这是另一种书源形态——**一个 `.js` 文件就是一个完整书源**，
 > 不写 XPath/JSONPath/CSS 规则，搜索/详情/目录/正文四步全部自己写 JS 抓取并 `return` 数据。
@@ -600,7 +600,7 @@ const config = {
   bookSourceName: "示例JS源",
   bookSourceType: 0,
   bookSourceGroup: "",
-  bookSourceComment: "纯JS单文件书源:顶层只放 config 配置与函数声明",
+  bookSourceComment: "JS 源:顶层只放 config 配置与函数声明",
   lastUpdateTime: 0,
 };
 
@@ -885,7 +885,7 @@ function getReviewDetail(chapter, book, paraIndex, paraData, page) {
 
 - `java.*` 全量可用：`java.ajax(url)` 同步取网页、`java.post(...)`/`java.get(...)`、
   `java.base64Decode(...)`、`java.log(msg)` 输出到源调试控制台、`CryptoJS.MD5(...)` 等加解密
-  方法，见本文上方各节——纯JS单文件源与声明式源里的 `<js>` 共用同一套 `java.*` 能力。
+  方法，见本文上方各节——JS 源与声明式源里的 `<js>` 共用同一套 `java.*` 能力。
 - `source`、`cookie`、`cache`、`baseUrl` 同名绑定可直接使用；`key`/`page`/`book`/`chapter`/
   `nextChapterUrl` 既是当前函数的形参，也是同名的环境绑定（`jsLib` 里定义的辅助函数如果要用
   这些绑定，需要显式接收对应参数，不能隐式取到调用方的绑定）。

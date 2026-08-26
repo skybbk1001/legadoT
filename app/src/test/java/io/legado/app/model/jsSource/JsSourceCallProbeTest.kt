@@ -13,7 +13,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * 锁定纯JS源的调用机制与归一化契约(spec §2/§7):
+ * 锁定 JS 源的调用机制与归一化契约(spec §2/§7):
  * eval 调用表达式(参数=绑定)可调顶层函数;NativeObject/NativeArray 经 GSON 归一化。
  */
 class JsSourceCallProbeTest {

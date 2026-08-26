@@ -203,7 +203,7 @@ class ImportBookSourceViewModel(app: Application) : BaseViewModel(app) {
         }
     }
 
-    /** 文件/URL 拉到的文本:JSON 数组 / 单对象 / 纯JS 三形态统一解析 */
+    /** 文件/URL 拉到的文本:JSON 数组 / 单对象 / JS 脚本 三形态统一解析 */
     private suspend fun importSourceText(text: String) {
         val mText = text.trim()
         when {

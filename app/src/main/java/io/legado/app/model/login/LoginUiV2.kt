@@ -13,7 +13,7 @@ import io.legado.app.utils.fromJsonObject
  */
 object LoginUiV2 {
 
-    /** 声明式源 loginUi 字段的 v2 标记;JS 单文件源由 JsSourceConfig 提取时写入 */
+    /** 声明式源 loginUi 字段的 v2 标记;JS 源由 JsSourceConfig 提取时写入 */
     const val MARKER = """{"version": 2}"""
 
     private val knownCommands = setOf("state", "error", "login", "close")

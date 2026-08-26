@@ -40,7 +40,7 @@ data class BookSourcePart(
     var weight: Int = 0,
     // 是否有发现url
     var hasExploreUrl: Boolean = false,
-    // 是否纯JS单文件源
+    // 是否 JS 源
     var hasJs: Boolean = false
 ) {
 

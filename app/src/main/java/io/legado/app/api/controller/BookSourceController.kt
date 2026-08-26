@@ -104,7 +104,7 @@ object BookSourceController {
     }
 
     /**
-     * 纯JS单文件源保存:body 为脚本原文,与导入同一条提取/校验路径。
+     * JS 源保存:body 为脚本原文,与导入同一条提取/校验路径。
      * 脚本是元数据唯一真理源,不改写 lastUpdateTime。
      */
     suspend fun saveJsSource(postData: String?): ReturnData {

@@ -140,7 +140,7 @@ class BookSourceViewModel(application: Application) : BaseViewModel(application)
         execute {
             val single = sources.singleOrNull()
             if (single != null && single.isJsSource()) {
-                // 单选纯JS源导出脚本原文(.js,与编辑器分享同款形态);多选/混选走 JSON 备份容器
+                // 单选 JS 源导出脚本原文(.js,与编辑器分享同款形态);多选/混选走 JSON 备份容器
                 val name = single.bookSourceName.replace(Regex("[/\\\\:*?\"<>|]"), "_")
                     .trim().trim('.').ifBlank { "jsSource" }
                 val file = File(context.cacheDir, "$name.js")

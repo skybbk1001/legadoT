@@ -308,7 +308,7 @@ class JsTest {
 
     /**
      * Jsoup 经顶层包对象可达(RhinoClassShutter 未拦 org.jsoup)——
-     * 纯JS单文件源(java=JsExtensions,无 AnalyzeRule 选择器函数)的 HTML 解析通道。
+     * JS 源(java=JsExtensions,无 AnalyzeRule 选择器函数)的 HTML 解析通道。
      */
     @Test
     fun jsoupFromJsScope() {

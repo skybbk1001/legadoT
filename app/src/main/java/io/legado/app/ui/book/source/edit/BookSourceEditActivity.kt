@@ -122,7 +122,7 @@ class BookSourceEditActivity :
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        // JS 单文件源重定向须在窗口上屏前完成:onCreate 内 finish 的 Activity 不渲染,
+        // JS 源重定向须在窗口上屏前完成:onCreate 内 finish 的 Activity 不渲染,
         // 转场直达 JS 编辑器;若留到 initData 异步回调再判定,本页 JSON 规则编辑 UI 会先
         // 闪现一帧再二次转场。存在性判定走 hasJsSource 主键查询(不拉 mainJs 全文),
         // 主线程同步(allowMainThreadQueries)。

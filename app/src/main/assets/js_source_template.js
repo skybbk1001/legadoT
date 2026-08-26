@@ -1,5 +1,5 @@
 /**
- * 纯 JavaScript 单文件书源模板。
+ * JS 源模板。
  * config 配置对象加若干函数声明即完整书源：search、getChapters、getContent 必须实现，
  * getBookInfo 可选，config.exploreUrl 与 explore 成对使用。
  * getReviewSummary 与 getReviewDetail 成对声明即启用段评。
