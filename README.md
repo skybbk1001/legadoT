@@ -15,7 +15,7 @@ Legado / 开源阅读
 Legado is a free and open source novel reader for Android.
 </div>
 
-> 本仓库为 **阅读T**（Legado 增强分支）：在 Legado 基础上扩展定时任务、纯 JS 书源、内置 MCP 服务、HTTP 在线角色化朗读等能力，详见下方 [阅读T增强特性](#阅读t增强特性)。
+> 本仓库为 **阅读T**（Legado 增强分支）：在 Legado 基础上扩展定时任务、JS 书源、内置 MCP 服务、HTTP 在线角色化朗读等能力，详见下方 [阅读T增强特性](#阅读t增强特性)。
 
 [![](https://img.shields.io/badge/-Contents:-696969.svg)](#contents) [![](https://img.shields.io/badge/-Function-F5F5F5.svg)](#Function-主要功能-) [![](https://img.shields.io/badge/-Community-F5F5F5.svg)](#Community-交流社区-) [![](https://img.shields.io/badge/-API-F5F5F5.svg)](#API-) [![](https://img.shields.io/badge/-Other-F5F5F5.svg)](#Other-其他-) [![](https://img.shields.io/badge/-Grateful-F5F5F5.svg)](#Grateful-感谢-) [![](https://img.shields.io/badge/-Interface-F5F5F5.svg)](#Interface-界面-)
 
@@ -44,7 +44,7 @@ Legado is a free and open source novel reader for Android.
 
 书源生态
 
-- 纯 JS 单文件书源：单个脚本提供 search/getChapters/getContent 等函数，支持发现、登录和段评，配套 CodeMirror 编辑器及 `.js` 导出分享
+- JS 书源：单个脚本提供 search/getChapters/getContent 等函数，支持发现、登录和段评，配套 CodeMirror 编辑器及 `.js` 导出分享
 - 登录 UI v2：支持状态循环、倒计时、下拉选择、清除登录信息等动态多步表单，以及 toggle 登录开关
 - 书源网页会话桥接：与书源关联的网页会话可访问全局缓存、书源数据和登录凭据；仅应由可信书源打开
 - 内置 MCP 服务：提供 Bearer Token 鉴权和 23 个工具，AI 助手可直连 App 开发、调试和管理书源

@@ -34,7 +34,7 @@ Method = POST
 
 #### 插入JS单文件书源
 
-请求BODY为纯JS源脚本原文。
+请求BODY为JS源脚本原文。
 App 侧执行与导入相同的校验与元数据提取，返回落库后的完整书源；
 同 URL 覆盖时保留分组、启用开关等用户态字段，`lastUpdateTime` 以脚本内声明为准。
 
@@ -49,7 +49,7 @@ Method = POST
 URL = http://127.0.0.1:1234/getBookSource?url=xxx
 URL = http://127.0.0.1:1234/getRssSource?url=xxx
 Method = GET
-``` 
+```
 
 #### 获取所有书源or订阅源
 
@@ -120,6 +120,7 @@ URL = http://127.0.0.1:1234/deleteReplaceRule
 Method = POST
 Body = [ReplaceRule]
 ```
+
 ##### 插入
 
 ```
@@ -217,10 +218,9 @@ Method = POST
 
 ### [Content Provider](/app/src/main/java/io/legado/app/api/ReaderProvider.kt)
 
-
-* 需声明`io.legado.READ_WRITE`权限
-* `providerHost`为`包名.readerProvider`, 如`io.legado.app.release.readerProvider`,不同包的地址不同,防止冲突安装失败
-* 以下出现的`providerHost`请自行替换
+- 需声明`io.legado.READ_WRITE`权限
+- `providerHost`为`包名.readerProvider`, 如`io.legado.app.release.readerProvider`,不同包的地址不同,防止冲突安装失败
+- 以下出现的`providerHost`请自行替换
 
 #### 插入单个书源or订阅源
 
@@ -299,7 +299,7 @@ Method = query
 
 #### 获取书籍章节列表
 
-获取指定图书的章节列表。   
+获取指定图书的章节列表。  
 用`Cursor.getString(0)`取出返回结果。
 
 ```
@@ -309,7 +309,7 @@ Method = query
 
 #### 获取书籍内容
 
-获取指定图书的第`index`章节的文本内容。     
+获取指定图书的第`index`章节的文本内容。  
 用`Cursor.getString(0)`取出返回结果。
 
 ```

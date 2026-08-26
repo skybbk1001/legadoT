@@ -1,0 +1,50 @@
+{
+  "source": "DSH (~/.dsh/settings.yaml + .credentials.yaml)",
+  "note": "密钥属于你自己的账号，分享后朋友将消耗你的额度，请谨慎分发。",
+  "providers": [
+    {
+      "id": "deepseek-official",
+      "displayName": "DeepSeek 官方",
+      "api": "openai-completions",
+      "endpoint": "https://api.deepseek.com/chat/completions",
+      "baseURL": "https://api.deepseek.com",
+      "apiKeyEnv": "DEEPSEEK_API_KEY",
+      "apiKey": "sk-eb576015edf64a798aa9b5b6af756cea",
+      "models": ["deepseek-v4-pro", "deepseek-v4-flash", "deepseek-v4-flash-vision-exp"]
+    },
+    {
+      "id": "one",
+      "displayName": "A6",
+      "api": "openai-responses",
+      "baseURL": "https://api.a6api.com/v1",
+      "apiKeyEnv": "ONE_API_KEY",
+      "apiKey": "sk-sB2oDAURzFJUyWzPMYTd3REQoDDbBm0oaDnkYLnvaMm1YHzn",
+      "models": [
+        "DeepSeek-V4-Flash-0731",
+        "deepseek-v4-pro-0813",
+        "glm-5.3",
+        "gpt-5.6-sol",
+        "grok-4.6",
+        "kimi-k3"
+      ]
+    },
+    {
+      "id": "sec",
+      "displayName": "ALI",
+      "api": "openai-responses",
+      "baseURL": "https://token-plan.cn-beijing.maas.aliyuncs.com/compatible-mode/v1",
+      "apiKeyEnv": "SEC_API_KEY",
+      "apiKey": "sk-sp-H.YIEHY.c0PE.MEUCIAeHZPXR9ZbpyyNABfwgv1c6ic7ZZvCX4g-gVCzdOjITAiEA_y9Ce9MXqwkVHBJXCBCqMk4bTwaq-XfR3S-fob7TbFM",
+      "models": ["deepseek-v4-pro", "deepseek-v4-flash-0731", "qwen3.8-max"]
+    },
+    {
+      "id": "thr",
+      "displayName": "ALIECS",
+      "api": "openai-responses",
+      "baseURL": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+      "apiKeyEnv": "THR_API_KEY",
+      "apiKey": "sk-6ea3b4efda4b4fbabe6282ea7cb90ecf",
+      "models": ["deepseek-v4-pro-0813", "deepseek-v4-flash-0731"]
+    }
+  ]
+}
