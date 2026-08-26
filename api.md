@@ -334,10 +334,10 @@ claude mcp add legado --scope user --transport http --header "Authorization: Bea
 
 `<Token>` 在设置-其它-MCP Token 查看/复制(点击即复制),可随时重新生成(立即生效,无需重启)。首次开启服务时自动生成;所有 `/mcp` 请求必须携带该 token,否则 401。
 
-工具 23 个:
+工具 24 个:
 
 - 书源:save_source / debug_source / list_sources / get_source / delete_sources / check_source
-- HTTP 日志:get_http_logs / get_http_log / set_http_log_recording
+- 日志:get_http_logs / get_http_log / set_http_log_recording / get_app_logs
 - 运行时:eval_js / get_cookies / set_cookie / clear_cookies
 - 定时任务:list_auto_tasks / get_auto_task / save_auto_task / delete_auto_tasks / run_auto_task
 - 朗读引擎:list_tts / get_tts / save_tts / delete_tts / test_tts
