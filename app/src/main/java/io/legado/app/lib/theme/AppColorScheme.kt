@@ -43,6 +43,8 @@ data class AppSchemeColors(
     @param:ColorInt val surfaceContainer: Int,
     @param:ColorInt val surfaceContainerHigh: Int,
     @param:ColorInt val surfaceContainerHighest: Int,
+    @param:ColorInt val surfaceBright: Int,
+    @param:ColorInt val surfaceDim: Int,
 )
 
 @Suppress("RestrictedApi")
@@ -126,6 +128,8 @@ object AppColorScheme {
             surfaceContainer = surfaceAnchor.shiftTone(if (isDark) 6.0 else -4.0),
             surfaceContainerHigh = surfaceAnchor.shiftTone(if (isDark) 11.0 else -6.0),
             surfaceContainerHighest = surfaceAnchor.shiftTone(if (isDark) 16.0 else -8.0),
+            surfaceBright = surfaceAnchor.withTone(if (isDark) 24.0 else 98.0),
+            surfaceDim = surfaceAnchor.withTone(if (isDark) 6.0 else 87.0),
         )
     }
 
@@ -164,6 +168,8 @@ object AppColorScheme {
         surfaceContainer = EINK_CONTAINER,
         surfaceContainerHigh = EINK_CONTAINER,
         surfaceContainerHighest = EINK_CONTAINER,
+        surfaceBright = WHITE,
+        surfaceDim = EINK_CONTAINER,
     )
 
     /**

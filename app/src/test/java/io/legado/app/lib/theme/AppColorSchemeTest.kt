@@ -145,6 +145,16 @@ class AppColorSchemeTest {
     }
 
     @Test
+    fun `surface bright and dim follow m3 spec tones`() {
+        val l = AppColorScheme.buildScheme(daySeed, false, dayBg, false)
+        assertTrue("浅色 surfaceBright 应为 N98", abs(tone(l.surfaceBright) - 98.0) <= 1.0)
+        assertTrue("浅色 surfaceDim 应为 N87", abs(tone(l.surfaceDim) - 87.0) <= 1.0)
+        val d = AppColorScheme.buildScheme(nightSeed, true, nightBg, false)
+        assertTrue("深色 surfaceBright 应为 N24", abs(tone(d.surfaceBright) - 24.0) <= 1.0)
+        assertTrue("深色 surfaceDim 应为 N6", abs(tone(d.surfaceDim) - 6.0) <= 1.0)
+    }
+
+    @Test
     fun `generate default palette xml into build dir`() {
         fun AppSchemeColors.toXml(): String = buildString {
             appendLine("""<?xml version="1.0" encoding="utf-8"?>""")
@@ -171,6 +181,8 @@ class AppColorSchemeTest {
             line("surface_container", surfaceContainer)
             line("surface_container_high", surfaceContainerHigh)
             line("surface_container_highest", surfaceContainerHighest)
+            line("surface_bright", surfaceBright)
+            line("surface_dim", surfaceDim)
             appendLine("</resources>")
         }
         java.io.File("build/m3_palette_day.xml")
@@ -179,9 +191,9 @@ class AppColorSchemeTest {
             .writeText(AppColorScheme.buildScheme(nightSeed, true, nightBg, false).toXml())
         val dayXml = java.io.File("build/m3_palette_day.xml").readText()
         assertTrue(dayXml.contains("<color name=\"m3_primary\">"))
-        assertEquals(32, Regex("<color name=\"m3_").findAll(dayXml).count())
+        assertEquals(34, Regex("<color name=\"m3_").findAll(dayXml).count())
         val nightXml = java.io.File("build/m3_palette_night.xml").readText()
         assertTrue(nightXml.contains("<color name=\"m3_primary\">"))
-        assertEquals(32, Regex("<color name=\"m3_").findAll(nightXml).count())
+        assertEquals(34, Regex("<color name=\"m3_").findAll(nightXml).count())
     }
 }

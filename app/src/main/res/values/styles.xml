@@ -57,10 +57,23 @@
         <item name="colorSurfaceContainer">@color/m3_surface_container</item>
         <item name="colorSurfaceContainerHigh">@color/m3_surface_container_high</item>
         <item name="colorSurfaceContainerHighest">@color/m3_surface_container_highest</item>
+        <item name="colorSurfaceBright">@color/m3_surface_bright</item>
+        <item name="colorSurfaceDim">@color/m3_surface_dim</item>
         <item name="colorSurfaceInverse">@color/m3_inverse_surface</item>
         <item name="colorOnSurfaceInverse">@color/m3_inverse_on_surface</item>
         <item name="colorOutline">@color/m3_outline</item>
         <item name="colorOutlineVariant">@color/m3_outline_variant</item>
+        <!-- 文字色 attr 显式接管:Theme.Material3 默认指向库内 selector(m3_dark/default_default_color_*),
+             不经过 app token,运行时表覆盖不到;此三色 + 弹窗列表项/提示是 app 文字色的全部通路 -->
+        <item name="android:textColorPrimary">@color/text_primary_color</item>
+        <item name="android:textColorSecondary">@color/text_secondary_color</item>
+        <item name="android:textColorTertiary">@color/text_secondary_color</item>
+        <item name="android:textColorPrimaryInverse">@color/m3_inverse_on_surface</item>
+        <item name="android:textColorSecondaryInverse">@color/m3_inverse_on_surface</item>
+        <item name="android:textColorTertiaryInverse">@color/m3_inverse_on_surface</item>
+        <item name="android:textColorPrimaryDisableOnly">@color/m3_on_surface</item>
+        <item name="android:textColorAlertDialogListItem">@color/m3_on_surface</item>
+        <item name="android:textColorHint">@color/m3_on_surface_variant</item>
         <item name="tabStyle">@style/Widget.App.TabLayout</item>
         <!-- textInputStyle 全局挂接 OutlinedBox+radius_m;chipStyle 不挂全局——Filter 变体做全局默认会让普通 action chip 也变成可勾选外观 -->
         <item name="textInputStyle">@style/Widget.App.TextInputLayout</item>

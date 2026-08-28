@@ -88,9 +88,14 @@ abstract class BaseActivity<VB : ViewBinding>(
 
     @SuppressLint("ObsoleteSdkInt")
     override fun onCreate(savedInstanceState: Bundle?) {
-        window.decorView.disableAutoFill()
         initTheme()
+        // 须先于任何 decorView 访问:运行时色板表挂载后,windowBackground/文字色解析才经覆盖表;
+        // initTheme 只做 setTheme,不触碰 window
         AppThemeInstaller.install(this)
+        window.decorView.disableAutoFill()
+        if (theme != Theme.Transparent) {
+            window.decorView.applyBackgroundTint(backgroundColor)
+        }
         super.onCreate(savedInstanceState)
         setupSystemBar()
         setContentView(binding.root)
@@ -155,23 +160,14 @@ abstract class BaseActivity<VB : ViewBinding>(
     open fun initTheme() {
         when (theme) {
             Theme.Transparent -> setTheme(R.style.AppTheme_Transparent)
-            Theme.Dark -> {
-                setTheme(R.style.AppTheme_Dark)
-                window.decorView.applyBackgroundTint(backgroundColor)
-            }
-
-            Theme.Light -> {
-                setTheme(R.style.AppTheme_Light)
-                window.decorView.applyBackgroundTint(backgroundColor)
-            }
-
+            Theme.Dark -> setTheme(R.style.AppTheme_Dark)
+            Theme.Light -> setTheme(R.style.AppTheme_Light)
             else -> {
                 if (ColorUtils.isColorLight(primaryColor)) {
                     setTheme(R.style.AppTheme_Light)
                 } else {
                     setTheme(R.style.AppTheme_Dark)
                 }
-                window.decorView.applyBackgroundTint(backgroundColor)
             }
         }
         if (AppConfig.isEInkMode) {

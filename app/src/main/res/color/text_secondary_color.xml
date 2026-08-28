@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 主题级次要文字色(android:textColorSecondary/Tertiary 通路):
+     跟随 m3_on_surface_variant token(运行时覆盖表),禁用态 38% 透明度对齐 M3 规范 -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:state_enabled="false" android:alpha="0.38" android:color="@color/m3_on_surface_variant" />
+    <item android:color="@color/m3_on_surface_variant" />
+</selector>

@@ -17,6 +17,7 @@ class SkinRoleMappingTest {
     /**
      * 用 0..31 依位置构造色板,则前 32 个 scheme 角色的 resolve 返回值必须等于其 ordinal。
      * 同时锁死两件事:resolve 的 when 分支没有串线;枚举序与数据类字段序一致。
+     * surfaceBright/surfaceDim 追加在尾部:仅作 attr token,不进入 SkinRole 枚举。
      * app 四色角色(themePrimary 起)走 ThemeStore/appCtx,JVM 单测不触碰。
      */
     @Test
@@ -24,6 +25,7 @@ class SkinRoleMappingTest {
         val scheme = AppSchemeColors(
             0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
             16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31,
+            32, 33,
         )
         SkinRole.entries.take(32).forEachIndexed { ordinal, role ->
             assertEquals("SkinRole.$role 与 AppSchemeColors 字段错位", ordinal, role.resolve(scheme))

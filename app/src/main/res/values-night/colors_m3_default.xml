@@ -33,4 +33,6 @@
     <color name="m3_surface_container">#FF1F1E1E</color>
     <color name="m3_surface_container_high">#FF292929</color>
     <color name="m3_surface_container_highest">#FF343333</color>
+    <color name="m3_surface_bright">#FF393939</color>
+    <color name="m3_surface_dim">#FF131313</color>
 </resources>
