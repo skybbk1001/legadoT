@@ -169,8 +169,8 @@
 
     .btn.btn-icon {
       padding: 0;
-      width: 34px;
-      height: 32px;
+      width: 40px;
+      height: 40px;
       display: inline-flex;
       align-items: center;
       justify-content: center;
@@ -290,7 +290,7 @@
       color: var(--text) !important;
       border: none !important;
       border-radius: 6px !important;
-      padding: 4px 8px !important;
+      padding: 6px 10px !important;
       margin: 0 !important;
       background-image: none !important;
       cursor: pointer;
@@ -320,9 +320,11 @@
       color: var(--bg) !important;
     }
 
+    /* 浮层面板统一锚在 #editor-container 内(top:8px 即工具栏正下方),
+       不再按工具栏像素高度硬编码,工具栏加高/换行都不会错位 */
     #format-options {
       position: absolute;
-      top: 44px;
+      top: 8px;
       right: 8px;
       background: var(--bg);
       border: 1px solid var(--border);
@@ -391,7 +393,8 @@
       pointer-events: none;
       opacity: 0;
       transition: opacity 0.3s;
-      z-index: 20;
+      /* 须高于所有浮层面板(最高 50),否则日志等面板打开时操作反馈被完全遮挡 */
+      z-index: 60;
     }
 
     #toast.show {
@@ -474,7 +477,7 @@
       position: absolute;
       left: 8px;
       right: 8px;
-      top: 44px;
+      top: 8px;
       max-height: 60%;
       display: none;
       flex-direction: column;
@@ -533,7 +536,7 @@
       position: absolute;
       left: 8px;
       right: 8px;
-      top: 44px;
+      top: 8px;
       max-height: 65%;
       display: none;
       flex-direction: column;
@@ -591,6 +594,79 @@
     }
     .regex-match { color: var(--accent); }
     .regex-error { color: #e06c75; }
+    /* 工具栏溢出菜单(低频入口集中,窄屏不再裁切按钮) */
+    #more-menu {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      box-shadow: var(--panel-shadow);
+      padding: 6px;
+      display: none;
+      z-index: 46;
+      min-width: 148px;
+    }
+    #more-menu.show { display: block; }
+    .menu-item {
+      display: flex;
+      align-items: center;
+      width: 100%;
+      border: none;
+      background: transparent;
+      color: var(--text);
+      padding: 10px 12px;
+      border-radius: 8px;
+      font-size: 14px;
+      text-align: left;
+      cursor: pointer;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .menu-item:active { background: var(--accent-soft); }
+    .menu-item.active { color: var(--accent); }
+    /* 跳转到行小面板 */
+    #goto-panel {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      box-shadow: var(--panel-shadow);
+      padding: 8px;
+      display: none;
+      z-index: 47;
+      gap: 6px;
+      align-items: center;
+      min-width: 220px;
+    }
+    #goto-panel.show { display: flex; }
+    #goto-input {
+      flex: 1;
+      min-width: 0;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 6px 10px;
+      font-size: 13px;
+      background: var(--bg);
+      color: var(--text);
+      font-family: inherit;
+    }
+    #goto-input:focus { border-color: var(--accent); outline: none; }
+    /* 面板底部操作行(与编辑器互通:选区填充/插回编辑器) */
+    .panel-footer {
+      display: flex;
+      gap: 8px;
+      padding-top: 2px;
+    }
+    .panel-footer .btn {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 12px;
+      padding: 7px 12px;
+    }
     .tb-icon {
       width: 18px; height: 18px;
       vertical-align: middle;
@@ -600,8 +676,8 @@
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      width: 28px;
-      height: 28px;
+      width: 32px;
+      height: 32px;
       border: none;
       background: transparent;
       color: var(--text);
@@ -636,19 +712,30 @@
     <button id="formatBtn" class="btn btn-icon btn-gap" title="格式化">
       <svg class="tb-icon" viewBox="0 0 18 18"><line x1="2" y1="4" x2="16" y2="4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><line x1="5" y1="9" x2="16" y2="9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><line x1="5" y1="14" x2="13" y2="14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
     </button>
-    <button id="formatOptionsBtn" class="btn btn-icon" title="格式化选项">
+    <button id="formatOptionsBtn" class="btn btn-icon" title="设置">
       <svg class="tb-icon" viewBox="0 0 18 18"><line x1="2" y1="5" x2="16" y2="5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="2" y1="13" x2="16" y2="13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="6" cy="5" r="2" fill="var(--bg)" stroke="currentColor" stroke-width="1.5"/><circle cx="12" cy="13" r="2" fill="var(--bg)" stroke="currentColor" stroke-width="1.5"/></svg>
     </button>
-    <button id="regexToggleBtn" class="btn btn-icon btn-gap" title="正则测试">
-      <svg class="tb-icon" viewBox="0 0 18 18"><text x="1" y="13.5" fill="currentColor" font-size="13" font-weight="bold" font-family="monospace">.*</text></svg>
-    </button>
-    <button id="curlToggleBtn" class="btn btn-icon" title="curl 转换">
-      <svg class="tb-icon" viewBox="0 0 18 18"><rect x="1.5" y="2.5" width="15" height="13" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M5 9l2.5-2.5M5 9l2.5 2.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><line x1="9" y1="11.5" x2="13" y2="11.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
-    </button>
-    <button id="logToggleBtn" class="btn btn-icon" title="日志">
-      <svg class="tb-icon" viewBox="0 0 18 18"><rect x="2" y="2" width="14" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/><line x1="5" y1="6" x2="13" y2="6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="5" y1="9.5" x2="11" y2="9.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="5" y1="13" x2="9" y2="13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+    <button id="moreBtn" class="btn btn-icon btn-gap" title="更多">
+      <svg class="tb-icon" viewBox="0 0 18 18"><circle cx="9" cy="3.5" r="1.6" fill="currentColor"/><circle cx="9" cy="9" r="1.6" fill="currentColor"/><circle cx="9" cy="14.5" r="1.6" fill="currentColor"/></svg>
     </button>
   </div>
+
+  <div id="editor-container">
+    <div id="editor"></div>
+    <div id="scroll-indicator-hit"></div>
+    <div id="scroll-indicator"></div>
+
+    <div id="more-menu">
+      <button class="menu-item" id="gotoToggleBtn">跳转到行</button>
+      <button class="menu-item" id="regexToggleBtn">正则测试</button>
+      <button class="menu-item" id="curlToggleBtn">curl 转换</button>
+      <button class="menu-item" id="logToggleBtn">日志</button>
+    </div>
+
+    <div id="goto-panel">
+      <input id="goto-input" type="text" inputmode="numeric" placeholder="行号 或 行:列" spellcheck="false" />
+      <button id="gotoConfirmBtn" class="btn">跳转</button>
+    </div>
 
   <div id="format-options">
     <div class="opt-group-title">编辑器</div>
@@ -743,6 +830,10 @@
     <div id="curl-body">
       <textarea id="curl-input" class="curl-text" placeholder="粘贴 curl 或 AnalyzeUrl"></textarea>
       <textarea id="curl-output" class="curl-text" placeholder="转换结果" readonly></textarea>
+      <div class="panel-footer">
+        <button id="curlFillBtn" class="btn">从选区填充</button>
+        <button id="curlInsertBtn" class="btn">插入结果到编辑器</button>
+      </div>
     </div>
   </div>
 
@@ -775,13 +866,13 @@
       <textarea id="regex-sample" class="regex-input" placeholder="输入要测试的文本" spellcheck="false"></textarea>
       <label>匹配结果</label>
       <pre id="regex-result">等待输入…</pre>
+      <div class="panel-footer">
+        <button id="regexFillBtn" class="btn">从选区填充测试文本</button>
+        <button id="regexInsertBtn" class="btn">插入正则到编辑器</button>
+      </div>
     </div>
   </div>
 
-  <div id="editor-container">
-    <div id="editor"></div>
-    <div id="scroll-indicator-hit"></div>
-    <div id="scroll-indicator"></div>
   </div>
 
   <div id="syntax-status"></div>
@@ -986,6 +1077,16 @@
           regexFlagI: $("regexFlagI"),
           regexFlagM: $("regexFlagM"),
           regexFlagS: $("regexFlagS"),
+          moreBtn: $("moreBtn"),
+          moreMenu: $("more-menu"),
+          gotoToggleBtn: $("gotoToggleBtn"),
+          gotoPanel: $("goto-panel"),
+          gotoInput: $("goto-input"),
+          gotoConfirmBtn: $("gotoConfirmBtn"),
+          regexFillBtn: $("regexFillBtn"),
+          regexInsertBtn: $("regexInsertBtn"),
+          curlFillBtn: $("curlFillBtn"),
+          curlInsertBtn: $("curlInsertBtn"),
         };
 
         const CM = window.CodeMirrorBundle;
@@ -2220,7 +2321,10 @@
           if (isFormatting) return;
           const raw = getCode();
           const text = raw.trim();
-          if (!text) return;
+          if (!text) {
+            showToast("内容为空，无法格式化");
+            return;
+          }
           if (!(await preparePrettier(true))) {
             return;
           }
@@ -2253,7 +2357,12 @@
             showToast("格式化完成");
           } catch (e) {
             appendLog("error", errMsg(e));
-            showToast("格式化失败");
+            // 失败原因首行直接带上,不用再打开日志面板排查
+            const reason = errMsg(e).split("\n")[0];
+            showToast(
+              "格式化失败: " +
+                (reason.length > 80 ? reason.slice(0, 80) + "…" : reason),
+            );
           } finally {
             isFormatting = false;
           }
@@ -2363,6 +2472,16 @@
               !target.closest("#formatOptionsBtn")) {
             formatOptions.classList.remove("show");
           }
+          if (dom.moreMenu.classList.contains("show") &&
+              !target.closest("#more-menu") &&
+              !target.closest("#moreBtn")) {
+            dom.moreMenu.classList.remove("show");
+          }
+          if (dom.gotoPanel.classList.contains("show") &&
+              !target.closest("#goto-panel") &&
+              !target.closest("#gotoToggleBtn")) {
+            dom.gotoPanel.classList.remove("show");
+          }
           if (dom.logPanel.classList.contains("show") &&
               !target.closest("#log-panel") &&
               !target.closest("#logToggleBtn")) {
@@ -2380,6 +2499,78 @@
             dom.regexPanel.classList.remove("show");
           }
         });
+
+        // 更多菜单:打开时按各面板当前开合状态同步高亮;菜单项不夺编辑器焦点(同工具栏策略)
+        function closeMoreMenu() {
+          dom.moreMenu.classList.remove("show");
+        }
+        bindClick(dom.moreBtn, () => {
+          dom.regexToggleBtn.classList.toggle(
+            "active",
+            dom.regexPanel.classList.contains("show"),
+          );
+          dom.curlToggleBtn.classList.toggle(
+            "active",
+            dom.curlPanel.classList.contains("show"),
+          );
+          dom.logToggleBtn.classList.toggle(
+            "active",
+            dom.logPanel.classList.contains("show"),
+          );
+          dom.moreMenu.classList.toggle("show");
+        });
+        dom.moreMenu.addEventListener("mousedown", (e) => {
+          e.preventDefault();
+        });
+        dom.gotoConfirmBtn.addEventListener("mousedown", (e) => {
+          e.preventDefault();
+        });
+
+        function gotoLine() {
+          const v = (dom.gotoInput.value || "").trim();
+          const m = v.match(/^(\d+)(?:\s*[:：,，]\s*(\d+))?$/);
+          if (!m) {
+            showToast("请输入行号，如 120 或 120:8");
+            return;
+          }
+          const lineNo = Math.max(
+            1,
+            Math.min(parseInt(m[1], 10), view.state.doc.lines),
+          );
+          const line = view.state.doc.line(lineNo);
+          const col = m[2] ? Math.max(1, parseInt(m[2], 10)) : 1;
+          const pos = line.from + Math.min(col - 1, line.length);
+          view.dispatch({
+            selection: { anchor: pos, head: pos },
+            effects: EditorView.scrollIntoView(pos, { y: "center" }),
+          });
+          view.focus();
+          dom.gotoPanel.classList.remove("show");
+        }
+        bindClick(dom.gotoToggleBtn, () => {
+          closeMoreMenu();
+          dom.gotoPanel.classList.toggle("show");
+          if (dom.gotoPanel.classList.contains("show")) {
+            // 跳行就是为了立刻输数字,自动聚焦弹键盘符合预期
+            dom.gotoInput.value = "";
+            dom.gotoInput.focus();
+          }
+        });
+        bindClick(dom.gotoConfirmBtn, gotoLine);
+        dom.gotoInput.addEventListener("keydown", (e) => {
+          if (e.key === "Enter") gotoLine();
+        });
+
+        // 面板 ↔ 编辑器互通:选区内容灌入面板,面板结果插回光标处
+        function getEditorSelectionText() {
+          const sel = view.state.selection.main;
+          return sel.empty ? "" : view.state.sliceDoc(sel.from, sel.to);
+        }
+
+        function insertIntoEditor(text) {
+          view.dispatch(view.state.replaceSelection(text));
+          view.focus();
+        }
 
         bindClick(dom.searchToggleBtn, () => {
           // bundle 未导出 closeSearchPanel,复用面板自身关闭按钮的处理器
@@ -2437,11 +2628,33 @@
         }
 
         bindClick(dom.curlToggleBtn, () => {
+          closeMoreMenu();
           dom.curlPanel.classList.toggle("show");
           if (dom.curlPanel.classList.contains("show")) {
             // 不自动聚焦输入框:用户多半先粘贴内容,立即弹键盘会压缩面板可视区
             updateCurlPlaceholders();
           }
+        });
+        bindClick(dom.curlFillBtn, () => {
+          const text = getEditorSelectionText();
+          if (!text) {
+            showToast("请先在编辑器中选中文本");
+            return;
+          }
+          if (dom.curlInput) {
+            dom.curlInput.value = text;
+            showToast("已填充选区内容");
+          }
+        });
+        bindClick(dom.curlInsertBtn, () => {
+          const text = dom.curlOutput ? dom.curlOutput.value : "";
+          if (!text) {
+            showToast("没有转换结果");
+            return;
+          }
+          insertIntoEditor(text);
+          dom.curlPanel.classList.remove("show");
+          showToast("已插入到编辑器");
         });
         bindClick(dom.curlCloseBtn, () => {
           dom.curlPanel.classList.remove("show");
@@ -2558,11 +2771,32 @@
         });
 
         bindClick(dom.regexToggleBtn, () => {
+          closeMoreMenu();
           dom.regexPanel.classList.toggle("show");
           if (dom.regexPanel.classList.contains("show")) {
             // 不自动聚焦输入框,理由同 curl 面板
             runRegex();
           }
+        });
+        bindClick(dom.regexFillBtn, () => {
+          const text = getEditorSelectionText();
+          if (!text) {
+            showToast("请先在编辑器中选中文本");
+            return;
+          }
+          if (dom.regexSample) {
+            dom.regexSample.value = text;
+            runRegex();
+          }
+        });
+        bindClick(dom.regexInsertBtn, () => {
+          const pattern = dom.regexPattern ? dom.regexPattern.value : "";
+          if (!pattern) {
+            showToast("正则为空");
+            return;
+          }
+          insertIntoEditor(pattern);
+          showToast("已插入到编辑器");
         });
         bindClick(dom.regexCloseBtn, () => dom.regexPanel.classList.remove("show"));
         bindClick(dom.regexClearBtn, () => {
@@ -2578,6 +2812,7 @@
         });
 
         bindClick(dom.logToggleBtn, () => {
+          closeMoreMenu();
           dom.logPanel.classList.toggle("show");
           isLogOpen = dom.logPanel.classList.contains("show");
           if (isLogOpen && dom.logBody) {
@@ -2671,14 +2906,32 @@
           return 0;
         }
 
+        // 语法状态条生命周期:错误/暂停常驻(错误可点击跳行);"语法正确"亮 4s 后自动收起,
+        // 持续输入期间反复 ok 不会闪烁重播,修复错误时重新亮起给出正反馈
+        let lintState = "none"; // none | ok | error | paused
+        let okHideTimer = 0;
+
+        function hideSyntaxStatus() {
+          dom.syntaxStatus.style.display = "none";
+        }
+
         function showSyntaxOk() {
+          const reshown = lintState !== "ok";
+          lintState = "ok";
+          if (!reshown && dom.syntaxStatus.style.display === "none") return;
           dom.syntaxStatus.style.display = "block";
           dom.syntaxStatus.className = "ok";
           dom.syntaxStatus.textContent = "✓ 语法正确";
           dom.syntaxStatus.onclick = null;
+          clearTimeout(okHideTimer);
+          okHideTimer = setTimeout(() => {
+            if (lintState === "ok") hideSyntaxStatus();
+          }, 4000);
         }
 
         function showSyntaxError(msg, errorLine, errorCol) {
+          lintState = "error";
+          clearTimeout(okHideTimer);
           dom.syntaxStatus.style.display = "block";
           dom.syntaxStatus.className = "error";
           const first = String(msg).split("\n")[0];
@@ -2707,6 +2960,8 @@
         }
 
         function showSyntaxPaused() {
+          lintState = "paused";
+          clearTimeout(okHideTimer);
           dom.syntaxStatus.style.display = "block";
           dom.syntaxStatus.className = "paused";
           dom.syntaxStatus.textContent =
@@ -2722,7 +2977,9 @@
           const raw = getCode();
           const text = raw.trim();
           if (!text) {
-            dom.syntaxStatus.style.display = "none";
+            lintState = "none";
+            clearTimeout(okHideTimer);
+            hideSyntaxStatus();
             return;
           }
           const version = ++lintVersion;

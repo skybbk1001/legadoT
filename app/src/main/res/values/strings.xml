@@ -1017,6 +1017,8 @@ Placeholders:
     <string name="combining_text_placeholder">Content contains complex characters.</string>
     <string name="webview_edit">Edit in WebView</string>
     <string name="code_editor_busy">Code editor is in use, please try again later</string>
+    <string name="code_edit">Code edit</string>
+    <string name="code_no_changes">No changes to save</string>
     <string name="follow_public_account_summary">Follow [开源阅读] to support me by clicking on ads</string>
     <string name="weChat_appreciation_code">WeChat Tipping Code</string>
     <string name="alipay">AliPay</string>

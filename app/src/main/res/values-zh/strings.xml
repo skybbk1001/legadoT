@@ -965,6 +965,8 @@ Cron 使用 5 个字段：**分 时 日 月 周**
     <string name="combining_text_placeholder">内容包含复杂字符，请在编辑器中打开</string>
     <string name="webview_edit">WebView 编辑</string>
     <string name="code_editor_busy">代码编辑器被占用，请稍后再试</string>
+    <string name="code_edit">代码编辑</string>
+    <string name="code_no_changes">内容未修改</string>
     <string name="follow_public_account_summary">关注【开源阅读】点击广告支持我</string>
     <string name="weChat_appreciation_code">微信赞赏码</string>
     <string name="alipay">支付宝</string>

@@ -251,7 +251,8 @@ class WebCodeDialog() : BaseDialogFragment(R.layout.dialog_web_code_view),
     override fun onEditorSave(text: String) {
         if (view == null) return
         if (text == pendingCode) {
-            dismissAllowingStateLoss()
+            // 未修改时静默关闭会让用户不确定是否保存成功:提示并留在编辑页
+            toastOnUi(R.string.code_no_changes)
             return
         }
         pendingCode = text
