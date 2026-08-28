@@ -159,7 +159,7 @@ class McpService : BaseService() {
                             MessageDigest.isEqual(provided.toByteArray(), expected.toByteArray())
                         if (!authorized) {
                             call.respondText(
-                                """{"jsonrpc":"2.0","error":{"code":-32001,"message":"MCP 鉴权失败:Authorization 头需为 Bearer token(设置-其它-MCP Token 查看/复制)"},"id":null}""",
+                                """{"jsonrpc":"2.0","error":{"code":-32001,"message":"MCP 鉴权失败:Authorization 头需为 Bearer <token>(设置-其它-MCP Token 查看/复制)"},"id":null}""",
                                 status = HttpStatusCode.Unauthorized,
                                 contentType = ContentType.Application.Json,
                             )
