@@ -62,6 +62,26 @@ class ThemeWiringContractTest {
         assertTrue("未被任何 res/代码引用的运行时 token: $unused", unused.isEmpty())
     }
 
+    @Test
+    fun `runtime table install result is observable and resets below API 30`() {
+        val src = readProjectFile("src/main/java/io/legado/app/lib/theme/AppThemeInstaller.kt")
+        // install() 必须把 installTable 的布尔结果落位到公开状态,失败不吞
+        assertTrue(
+            "install() 未将结果写入 isRuntimeTableInstalled",
+            src.contains("isRuntimeTableInstalled = installTable(")
+        )
+        // 非 API30+ 分支必须显式复位为 false(否则上个 Activity 的 true 会残留)
+        assertTrue(
+            "API<30 分支未复位 isRuntimeTableInstalled = false",
+            src.contains("isRuntimeTableInstalled = false")
+        )
+        // 状态必须只读公开(私有 set),外部不能篡改
+        assertTrue(
+            "isRuntimeTableInstalled 必须是只读公开(私有 set)",
+            src.contains("var isRuntimeTableInstalled: Boolean = false\n        private set")
+        )
+    }
+
     private fun resolvesToPalette(name: String, visited: MutableSet<String>): Boolean {
         if (name in paletteTokens) return true
         if (name in staticTokens) return true

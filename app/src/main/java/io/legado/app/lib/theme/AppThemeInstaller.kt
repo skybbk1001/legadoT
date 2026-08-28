@@ -30,6 +30,15 @@ object AppThemeInstaller {
 
     private const val TAG = "AppThemeInstaller"
 
+    /**
+     * 最近一次 [install] 是否成功把运行时色板表挂到 [Resources]。
+     * 仅 API 30+ 有意义;API 26-29 恒为 false(attr 回落 XML 静态色板)。
+     * 用于诊断日志/契约测试确证注入生效,而非依赖静默成功。
+     */
+    @Volatile
+    var isRuntimeTableInstalled: Boolean = false
+        private set
+
     fun install(activity: AppCompatActivity) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             val table = colorResourcesTable(
@@ -37,9 +46,12 @@ object AppThemeInstaller {
                 entryNames = activity.resources::getResourceEntryName,
                 scheme = AppColorScheme.current,
             )
-            if (!installTable(activity.resources, table)) {
+            isRuntimeTableInstalled = installTable(activity.resources, table)
+            if (!isRuntimeTableInstalled) {
                 Log.w(TAG, "运行时色板注入失败,attr 回落 XML 静态色板")
             }
+        } else {
+            isRuntimeTableInstalled = false
         }
         // API 26-29 无运行时颜色资源覆盖能力:attr 回落 XML 预生成色板,skin_* 角色仍由引擎逐视图施色。
         SkinInflaterFactory.install(activity)
