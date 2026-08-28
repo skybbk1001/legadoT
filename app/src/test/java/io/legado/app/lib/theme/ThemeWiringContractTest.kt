@@ -65,20 +65,20 @@ class ThemeWiringContractTest {
     @Test
     fun `runtime table install result is observable and resets below API 30`() {
         val src = readProjectFile("src/main/java/io/legado/app/lib/theme/AppThemeInstaller.kt")
-        // install() 必须把 installTable 的布尔结果落位到公开状态,失败不吞
+        // install() 必须把挂载结果落位到 isRuntimeTableInstalled(成功含已缓存命中,失败 false)
         assertTrue(
             "install() 未将结果写入 isRuntimeTableInstalled",
-            src.contains("isRuntimeTableInstalled = installTable(")
+            src.contains("isRuntimeTableInstalled = synchronized(installedLoaders)")
         )
         // 非 API30+ 分支必须显式复位为 false(否则上个 Activity 的 true 会残留)
         assertTrue(
             "API<30 分支未复位 isRuntimeTableInstalled = false",
             src.contains("isRuntimeTableInstalled = false")
         )
-        // 状态必须只读公开(私有 set),外部不能篡改
+        // 状态必须只读公开(私有 set),外部不能篡改;用空白容忍正则,不锁缩进
         assertTrue(
             "isRuntimeTableInstalled 必须是只读公开(私有 set)",
-            src.contains("var isRuntimeTableInstalled: Boolean = false\n        private set")
+            Regex("""var isRuntimeTableInstalled: Boolean = false\s+private set""").containsMatchIn(src)
         )
     }
 

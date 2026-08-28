@@ -31,6 +31,13 @@ object AppThemeInstaller {
     private const val TAG = "AppThemeInstaller"
 
     /**
+     * 已成功挂载运行时色板的 [Resources] → 其 [ResourcesLoader]。
+     * 弱引用防持有 Resources 强引用;进程内 Resources 是共享单例,按 key 去重后
+     * 每个进程至多挂一次,避免各 Activity onCreate 反复 addLoaders 累积 loader/memfd。
+     */
+    private val installedLoaders = java.util.WeakHashMap<Resources, ResourcesLoader>()
+
+    /**
      * 最近一次 [install] 是否成功把运行时色板表挂到 [Resources]。
      * 仅 API 30+ 有意义;API 26-29 恒为 false(attr 回落 XML 静态色板)。
      * 用于诊断日志/契约测试确证注入生效,而非依赖静默成功。
@@ -41,12 +48,16 @@ object AppThemeInstaller {
 
     fun install(activity: AppCompatActivity) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            val table = colorResourcesTable(
-                packageName = activity.packageName,
-                entryNames = activity.resources::getResourceEntryName,
-                scheme = AppColorScheme.current,
-            )
-            isRuntimeTableInstalled = installTable(activity.resources, table)
+            val resources = activity.resources
+            isRuntimeTableInstalled = synchronized(installedLoaders) {
+                if (installedLoaders.containsKey(resources)) {
+                    true
+                } else {
+                    installTable(resources, activity)?.also {
+                        installedLoaders[resources] = it
+                    } != null
+                }
+            }
             if (!isRuntimeTableInstalled) {
                 Log.w(TAG, "运行时色板注入失败,attr 回落 XML 静态色板")
             }
@@ -113,25 +124,43 @@ object AppThemeInstaller {
     )
 
     /**
-     * 以公共 API 把 ARSC 覆盖表挂到 [Resources]:memfd 内存文件承载表字节,
-     * ResourcesProvider.loadFromTable 解析 + Resources.addLoaders 生效(仅 API 30+)。
-     * 与 material 的 ColorResourcesLoaderCreator 同构,但无任何库内部依赖。
+     * 建表并挂到 [Resources]:memfd 承载表字节,dup 出 pfd 交给 ResourcesProvider,
+     * addLoaders 生效后返回该 loader 供缓存(仅 API 30+)。
+     * 建表(getResourceEntryName / ARSC 生成)或挂载任何一步抛异常都返回 null,
+     * 由调用方统一落位 isRuntimeTableInstalled=false + 日志,不向上抛。
+     * 与 material 的 ColorResourcesLoaderCreator 同构,但无库内部依赖。
      */
-    private fun installTable(resources: Resources, table: ByteArray): Boolean {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return false
+    private fun installTable(resources: Resources, activity: AppCompatActivity): ResourcesLoader? {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return null
         return try {
-            val fd = Os.memfd_create("legado_palette", 0)
-            FileOutputStream(fd).use { it.write(table) }
-            val pfd = ParcelFileDescriptor.dup(fd)
-            Os.close(fd)
-            val loader = ResourcesLoader()
-            loader.addProvider(ResourcesProvider.loadFromTable(pfd, null))
-            pfd.close()
-            resources.addLoaders(loader)
-            true
+            val table = colorResourcesTable(
+                packageName = activity.packageName,
+                entryNames = activity.resources::getResourceEntryName,
+                scheme = AppColorScheme.current,
+            )
+            var fd: java.io.FileDescriptor? = null
+            var pfd: ParcelFileDescriptor? = null
+            try {
+                fd = Os.memfd_create("legado_palette", 0)
+                FileOutputStream(fd).use { it.write(table) }
+                pfd = ParcelFileDescriptor.dup(fd)
+                Os.close(fd)
+                fd = null
+                val loader = ResourcesLoader()
+                loader.addProvider(ResourcesProvider.loadFromTable(pfd, null))
+                pfd.close()
+                pfd = null
+                resources.addLoaders(loader)
+                loader
+            } finally {
+                if (fd != null) {
+                    runCatching { Os.close(fd) }
+                }
+                pfd?.let { runCatching { it.close() } }
+            }
         } catch (e: Exception) {
-            Log.w(TAG, "installTable 失败", e)
-            false
+            Log.w(TAG, "运行时色板注入失败", e)
+            null
         }
     }
 }
