@@ -6,11 +6,13 @@ import android.graphics.Canvas
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.StateListDrawable
 import io.legado.app.constant.PreferKey
+import io.legado.app.utils.SvgUtils
 import io.legado.app.utils.getPrefString
 import io.legado.app.utils.putPrefString
 import splitties.init.appCtx
 import java.io.ByteArrayOutputStream
 import java.io.File
+import java.io.FileOutputStream
 import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
 import java.util.zip.ZipOutputStream
@@ -25,6 +27,9 @@ object BottomBarSkinManager {
         get() = File(appCtx.filesDir, "bottomBarSkins").apply { if (!exists()) mkdirs() }
 
     private const val STAGING_DIR_NAME = ".staging"
+
+    /** SVG 源保存时栅格化的边长(px); 矢量放大也应清晰, 渲染时再按 iconSize 降采样。 */
+    private const val SVG_RASTER_SIZE = 512
 
     private val stagingDir: File
         get() = File(rootDir, STAGING_DIR_NAME)
@@ -205,8 +210,26 @@ object BottomBarSkinManager {
 
     private fun writeAssigns(dir: File, assigns: Map<String, SlotAssign>) {
         assigns.forEach { (slot, a) ->
-            a.selected.copyTo(File(dir, "${slot}_selected.png"), overwrite = true)
-            a.normal?.copyTo(File(dir, "${slot}_normal.png"), overwrite = true)
+            writeSlotImage(a.selected, File(dir, "${slot}_selected.png"))
+            a.normal?.let { writeSlotImage(it, File(dir, "${slot}_normal.png")) }
+        }
+    }
+
+    /**
+     * 把分配的图片落成 PNG。SVG 源先光栅化为 PNG(BitmapFactory 无法直接解码 SVG),
+     * 其余格式直接拷贝字节——内容由 BitmapFactory 嗅探, 命名统一为 .png 以维持导出/再导入往返契约。
+     */
+    private fun writeSlotImage(src: File, dest: File) {
+        if (!isSvgName(src.name)) {
+            src.copyTo(dest, overwrite = true)
+            return
+        }
+        val bmp = SvgUtils.createBitmap(src.absolutePath, SVG_RASTER_SIZE, SVG_RASTER_SIZE)
+            ?: error("cannot decode svg: ${src.name}")
+        try {
+            FileOutputStream(dest).use { out -> bmp.compress(Bitmap.CompressFormat.PNG, 100, out) }
+        } finally {
+            bmp.recycle()
         }
     }
 
@@ -240,9 +263,14 @@ object BottomBarSkinManager {
     /** 给分配页/调色板解码缩略图(降采样、按比例居中) */
     fun previewBitmap(file: File, sizePx: Int): Bitmap? = decodeSquared(file, sizePx)
 
-    /** 解码并按比例缩放进 size×size 透明正方形居中(解决非正方形拉伸) */
+    /** 解码并按比例缩放进 size×size 透明正方形居中(解决非正方形拉伸)。SVG 走矢量解码路径。 */
     private fun decodeSquared(file: File, sizePx: Int): Bitmap? {
         if (!file.exists() || sizePx <= 0) return null
+        return if (isSvgName(file.name)) decodeSvgSquared(file, sizePx) else decodeBitmapSquared(file, sizePx)
+    }
+
+    /** 位图格式解码: BitmapFactory 嗅探内容 + 降采样。 */
+    private fun decodeBitmapSquared(file: File, sizePx: Int): Bitmap? {
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         BitmapFactory.decodeFile(file.absolutePath, bounds)
         if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
@@ -251,6 +279,17 @@ object BottomBarSkinManager {
         while (maxSide / sample > sizePx * 2) sample *= 2
         val opts = BitmapFactory.Options().apply { inSampleSize = sample }
         val src = BitmapFactory.decodeFile(file.absolutePath, opts) ?: return null
+        return centerOnSquare(src, sizePx)
+    }
+
+    /** SVG 解码: 渲染为适配 size×size 的位图(保持宽高比), 再居中到透明正方形。 */
+    private fun decodeSvgSquared(file: File, sizePx: Int): Bitmap? {
+        val src = SvgUtils.createBitmap(file.absolutePath, sizePx, sizePx) ?: return null
+        return centerOnSquare(src, sizePx)
+    }
+
+    /** 把 src 按比例缩放后居中画进 size×size 透明正方形, 并回收中间位图。 */
+    private fun centerOnSquare(src: Bitmap, sizePx: Int): Bitmap {
         val scale = sizePx.toFloat() / maxOf(src.width, src.height)
         val w = (src.width * scale).toInt().coerceAtLeast(1)
         val h = (src.height * scale).toInt().coerceAtLeast(1)
@@ -261,4 +300,8 @@ object BottomBarSkinManager {
         scaled.recycle()
         return out
     }
+
+    /** 文件名是否为 SVG(大小写不敏感; 先取 basename) */
+    private fun isSvgName(name: String): Boolean =
+        name.substringAfterLast('/').substringAfterLast('\\').lowercase().endsWith(".svg")
 }
