@@ -8,12 +8,9 @@ import io.legado.app.R
 import io.legado.app.base.BaseDialogFragment
 import io.legado.app.constant.AppPattern
 import io.legado.app.data.appDb
-import io.legado.app.data.entities.BookSource
 import io.legado.app.data.entities.ExploreContainer
-import io.legado.app.data.entities.rule.ExploreKind
 import io.legado.app.databinding.DialogExploreContainerEditBinding
 import io.legado.app.help.source.ExploreContainerHelp
-import io.legado.app.help.source.exploreKinds
 import io.legado.app.lib.dialogs.alert
 import io.legado.app.lib.dialogs.selector
 import io.legado.app.utils.GSON
@@ -34,6 +31,7 @@ class ExploreContainerEditDialog : BaseDialogFragment(R.layout.dialog_explore_co
 
     companion object {
         private const val PICK_SOURCE_KEY = "exploreEditPickSource"
+        private const val PICK_KIND_KEY = "exploreEditPickKind"
 
         fun edit(id: Long) = ExploreContainerEditDialog().apply {
             arguments = Bundle().apply { putLong("id", id) }
@@ -45,7 +43,9 @@ class ExploreContainerEditDialog : BaseDialogFragment(R.layout.dialog_explore_co
 
     /** 进入编辑时的指向快照,保存时据此判断是否清旧缓存 */
     private var originTarget: Triple<String, String, String>? = null
-    private var pickingKinds = false
+
+    /** 换书源后待确认的新书源 URL;多选分类确定时一并落库 */
+    private var pendingSourceUrl: String? = null
 
     override fun onStart() {
         super.onStart()
@@ -66,6 +66,11 @@ class ExploreContainerEditDialog : BaseDialogFragment(R.layout.dialog_explore_co
         ) { _, bundle ->
             bundle.getString("sourceUrl")?.let { onSourcePicked(it) }
         }
+        childFragmentManager.setFragmentResultListener(
+            PICK_KIND_KEY, viewLifecycleOwner
+        ) { _, bundle ->
+            onKindsPicked(bundle)
+        }
         val restored = savedInstanceState?.getString("container")?.let { json ->
             runCatching { GSON.fromJson(json, ExploreContainer::class.java) }.getOrNull()
         }
@@ -75,6 +80,7 @@ class ExploreContainerEditDialog : BaseDialogFragment(R.layout.dialog_explore_co
                 ?.takeIf { it.size == 3 }
                 ?.let { Triple(it[0], it[1], it[2]) }
                 ?: Triple(restored.sourceUrl, restored.kindUrl, restored.kindTitle)
+            pendingSourceUrl = savedInstanceState.getString("pendingSourceUrl")
             // 输入控件走系统自动恢复,只刷指向信息,不重查 DB、不 upView 覆盖
             upSourceInfo(restored)
             return
@@ -100,6 +106,7 @@ class ExploreContainerEditDialog : BaseDialogFragment(R.layout.dialog_explore_co
         originTarget?.let {
             outState.putStringArray("originTarget", arrayOf(it.first, it.second, it.third))
         }
+        pendingSourceUrl?.let { outState.putString("pendingSourceUrl", it) }
     }
 
     private fun upView(c: ExploreContainer) = binding.run {
@@ -120,22 +127,44 @@ class ExploreContainerEditDialog : BaseDialogFragment(R.layout.dialog_explore_co
 
     private fun onSourcePicked(sourceUrl: String) {
         val c = container ?: return
-        selectKind(sourceUrl) { source, kind ->
-            c.sourceUrl = source.bookSourceUrl
-            c.sourceName = source.bookSourceName
-            c.kindTitle = kind.title
-            c.kindUrl = kind.url!!
-            upSourceInfo(c)
-        }
+        // 换书源后旧书源勾选集合失效:记录待确认的新书源,不预选,由用户重新多选
+        pendingSourceUrl = sourceUrl
+        pickKinds(sourceUrl, emptyList())
     }
 
     private fun pickKind() {
         val c = container ?: return
-        selectKind(c.sourceUrl) { _, kind ->
-            c.kindTitle = kind.title
-            c.kindUrl = kind.url!!
-            upSourceInfo(c)
+        pendingSourceUrl = null
+        // 预选当前固化的分类集合;旧数据(kindTitles 空)无预选
+        val selectedUrls: List<String> = if (c.kindTitles.isNotBlank()) {
+            c.kindUrls.splitNotBlank(AppPattern.splitGroupRegex).toList()
+        } else {
+            emptyList()
         }
+        pickKinds(c.sourceUrl, selectedUrls)
+    }
+
+    /** 弹出多选分类弹窗:预选 selectedUrls,确定后经 [onKindsPicked] 落库 */
+    private fun pickKinds(sourceUrl: String, selectedUrls: List<String>) {
+        showDialogFragment(KindPickerDialog.pick(sourceUrl, selectedUrls, PICK_KIND_KEY))
+    }
+
+    /** 多选分类结果:同步 kindTitles/kindUrls,指向对齐第一个选中分类;换书源时一并落库 */
+    private fun onKindsPicked(bundle: Bundle) {
+        val c = container ?: return
+        val titles = bundle.getStringArrayList("titles") ?: return
+        val urls = bundle.getStringArrayList("urls") ?: return
+        if (titles.isEmpty()) return
+        pendingSourceUrl?.let { url ->
+            c.sourceUrl = url
+            bundle.getString("sourceName")?.let { c.sourceName = it }
+        }
+        pendingSourceUrl = null
+        c.kindTitle = titles.first()
+        c.kindUrl = urls.getOrElse(0) { "" }
+        c.kindTitles = titles.joinToString(",")
+        c.kindUrls = urls.joinToString(",")
+        upSourceInfo(c)
     }
 
     /** 已有分组选择器:点选追加(不重复);自由输入(逗号分隔)仍可新建 */
@@ -158,38 +187,6 @@ class ExploreContainerEditDialog : BaseDialogFragment(R.layout.dialog_explore_co
                 )
                 set.add(groups[i])
                 binding.etGroup.setText(set.joinToString(","))
-            }
-        }
-    }
-
-    /** 加载书源分类后弹单选列表 */
-    private fun selectKind(sourceUrl: String, onSelect: (BookSource, ExploreKind) -> Unit) {
-        if (pickingKinds) return
-        pickingKinds = true
-        viewLifecycleOwner.lifecycleScope.launch {
-            try {
-                val source = withContext(IO) { appDb.bookSourceDao.getBookSource(sourceUrl) }
-                if (source == null) {
-                    toastOnUi(R.string.explore_source_not_found)
-                    return@launch
-                }
-                val kinds = withContext(IO) {
-                    source.exploreKinds().filter {
-                        !it.url.isNullOrBlank() && !it.title.startsWith("ERROR:")
-                    }
-                }
-                if (kinds.isEmpty()) {
-                    toastOnUi(R.string.explore_no_kinds)
-                    return@launch
-                }
-                requireContext().selector(
-                    "${source.bookSourceName} · ${getString(R.string.explore_select_kind)}",
-                    kinds.map { it.title }
-                ) { _, i ->
-                    onSelect(source, kinds[i])
-                }
-            } finally {
-                pickingKinds = false
             }
         }
     }

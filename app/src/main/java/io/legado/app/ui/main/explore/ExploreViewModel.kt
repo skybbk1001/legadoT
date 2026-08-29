@@ -9,6 +9,7 @@ import io.legado.app.constant.AppLog
 import io.legado.app.data.appDb
 import io.legado.app.data.entities.ExploreContainer
 import io.legado.app.data.entities.SearchBook
+import io.legado.app.data.entities.rule.ExploreKind
 import io.legado.app.exception.NoStackTraceException
 import io.legado.app.help.book.isNotShelf
 import io.legado.app.help.source.ExploreContainerHelp
@@ -39,6 +40,8 @@ data class ExploreContainerState(
     val page: Int = 1,
     /** 本批数据的写入时刻,0 = 未知(隐藏时间标签,视为过期) */
     val updateTime: Long = 0,
+    /** 所属书源当前可用分类(供卡片顶部分类切换标签);空/单分类时界面隐藏 */
+    val kinds: List<ExploreKind> = emptyList(),
 )
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -84,6 +87,7 @@ class ExploreViewModel(application: Application) : BaseViewModel(application) {
 
     private suspend fun onContainersChanged(containers: List<ExploreContainer>) {
         val toLoad = arrayListOf<ExploreContainer>()
+        val toLoadKinds = arrayListOf<ExploreContainer>()
         stateMutex.withLock {
             val old = HashMap(states)
             states.clear()
@@ -104,12 +108,27 @@ class ExploreViewModel(application: Application) : BaseViewModel(application) {
                             page = cached?.page ?: 1,
                             updateTime = cached?.time ?: 0,
                         )
+                        toLoadKinds.add(c)
+                    }
+
+                    oldState.container.sourceUrl != c.sourceUrl -> {
+                        // 换书源:分类列表随之变化,旧书作废并重拉分类与书籍
+                        toLoad.add(c)
+                        toLoadKinds.add(c)
+                        states[c.id] = ExploreContainerState(container = c, loading = true)
                     }
 
                     !sameTarget(oldState.container, c) -> {
-                        // 编辑改了书源/分类:旧书作废,重新加载
+                        // 仅切换/编辑分类(同书源):重新按容器选中集合算标签,旧书作废重新加载
                         toLoad.add(c)
+                        toLoadKinds.add(c)
                         states[c.id] = ExploreContainerState(container = c, loading = true)
+                    }
+
+                    !sameKinds(oldState.container, c) -> {
+                        // 勾选集合变了但指向不变(编辑换分类只增减勾选):重算标签,书籍无需重载
+                        toLoadKinds.add(c)
+                        states[c.id] = oldState.copy(container = c)
                     }
 
                     else -> states[c.id] = oldState.copy(container = c)
@@ -117,6 +136,7 @@ class ExploreViewModel(application: Application) : BaseViewModel(application) {
             }
             statesData.postValue(states.values.toList())
         }
+        toLoadKinds.forEach { loadKinds(it) }
         toLoad.forEach { loadContainer(it) }
     }
 
@@ -146,6 +166,61 @@ class ExploreViewModel(application: Application) : BaseViewModel(application) {
         }
     }
 
+    /** 加载容器分类标签:添加时勾选的分类固定展示;旧数据(未勾选)才动态取书源全部分类 */
+    private fun loadKinds(container: ExploreContainer) {
+        viewModelScope.launch(IO) {
+            val source = appDb.bookSourceDao.getBookSource(container.sourceUrl)
+            val sourceKinds = if (source == null) emptyList()
+            else ExploreContainerHelp.validKinds(source.exploreKinds())
+            val kinds = if (container.kindTitles.isNotBlank()) {
+                ExploreContainerHelp.resolveContainerKinds(container, sourceKinds)
+            } else {
+                sourceKinds
+            }
+            stateMutex.withLock {
+                val state = states[container.id] ?: return@withLock
+                // 加载期间容器换了书源:本次分类作废,由新书源触发的 loadKinds 覆盖
+                if (state.container.sourceUrl != container.sourceUrl) return@withLock
+                states[container.id] = state.copy(kinds = kinds)
+                statesData.postValue(states.values.toList())
+            }
+        }
+    }
+
+    /** 切换容器当前分类:更新指向并清旧缓存;flowEnabled 重发后按目标变化自动重拉 */
+    fun switchKind(id: Long, kind: ExploreKind) {
+        viewModelScope.launch(IO) {
+            val url = kind.url ?: return@launch
+            val state = stateMutex.withLock { states[id] } ?: return@launch
+            val container = state.container
+            if (container.kindTitle == kind.title && container.kindUrl == url) return@launch
+            // 新建时固化了勾选集合:把当前展示的标签(补上新分类)一起持久化;
+            // 旧数据(kindTitles 空)不冻结动态分类列表,只更新当前指向
+            val updated = if (container.kindTitles.isBlank()) {
+                container.copy(kindTitle = kind.title, kindUrl = url)
+            } else {
+                val titles = linkedSetOf<String>()
+                val urls = linkedSetOf<String>()
+                state.kinds.forEach { k ->
+                    k.url?.let {
+                        titles.add(k.title)
+                        urls.add(it)
+                    }
+                }
+                titles.add(kind.title)
+                urls.add(url)
+                container.copy(
+                    kindTitle = kind.title,
+                    kindUrl = url,
+                    kindTitles = titles.joinToString(","),
+                    kindUrls = urls.joinToString(","),
+                )
+            }
+            appDb.exploreContainerDao.update(updated)
+            ExploreContainerHelp.removeCache(id)
+        }
+    }
+
     /** 缓存超过有效期的容器静默重拉(回到前台时调用);in-flight 的跳过 */
     fun refreshStale() {
         viewModelScope.launch(IO) {
@@ -162,6 +237,11 @@ class ExploreViewModel(application: Application) : BaseViewModel(application) {
     /** 书源/分类指向是否一致(样式等展示属性变化不影响已加载书籍) */
     private fun sameTarget(a: ExploreContainer, b: ExploreContainer): Boolean {
         return a.sourceUrl == b.sourceUrl && a.kindUrl == b.kindUrl && a.kindTitle == b.kindTitle
+    }
+
+    /** 勾选分类集合是否一致(编辑换分类增减勾选、指向不变时也能感知) */
+    private fun sameKinds(a: ExploreContainer, b: ExploreContainer): Boolean {
+        return a.kindTitles == b.kindTitles && a.kindUrls == b.kindUrls
     }
 
     private fun loadContainer(container: ExploreContainer, page: Int = 1) {

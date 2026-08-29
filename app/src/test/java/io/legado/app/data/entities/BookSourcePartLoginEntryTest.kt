@@ -19,8 +19,9 @@ class BookSourcePartLoginEntryTest {
 
     @Test
     fun viewChangeShipsWithDb87() {
-        assertTrue("DatabaseView 变更必升 version", appDbSource.contains("version = 91"))
+        assertTrue("DatabaseView 变更必升 version", appDbSource.contains("version = 92"))
         assertTrue("应声明 86→87 AutoMigration", appDbSource.contains("AutoMigration(from = 86, to = 87)"))
         assertTrue("应声明 87→88 AutoMigration", appDbSource.contains("AutoMigration(from = 87, to = 88)"))
+        assertTrue("应声明 91→92 AutoMigration", appDbSource.contains("AutoMigration(from = 91, to = 92)"))
     }
 }

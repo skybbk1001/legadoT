@@ -7,7 +7,8 @@ import io.legado.app.constant.AppPattern
 import io.legado.app.utils.splitNotBlank
 
 /**
- * 发现页容器:绑定某书源的某个发现分类,自选展示样式
+ * 发现页容器:绑定某书源的一个或多个发现分类,自选展示样式;
+ * 多个分类以卡片顶部分类标签切换,kindTitle/kindUrl 为当前展示分类
  */
 @Entity(tableName = "exploreContainers")
 data class ExploreContainer(
@@ -21,6 +22,12 @@ data class ExploreContainer(
     var kindTitle: String = "",
     /** 添加时的分类 URL 快照(动态匹配不到时兜底) */
     var kindUrl: String = "",
+    /** 添加时选中的分类名,逗号分隔;空 = 旧数据/未指定,动态展示书源全部分类 */
+    @ColumnInfo(defaultValue = "")
+    var kindTitles: String = "",
+    /** 添加时选中的分类 URL 快照,逗号分隔(与 kindTitles 一一对应) */
+    @ColumnInfo(defaultValue = "")
+    var kindUrls: String = "",
     /** 自定义标题,null/空白时显示 kindTitle */
     var customTitle: String? = null,
     /** 展示样式 */

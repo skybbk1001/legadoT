@@ -351,7 +351,6 @@ object DatabaseMigrations {
         }
     }
 
-
     @Suppress("ClassName")
     class Migration_54_55 : AutoMigrationSpec {
 

@@ -43,6 +43,7 @@
         </FrameLayout>
 
         <TextView
+            android:id="@+id/tv_style_label"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
@@ -75,6 +76,7 @@
         </RadioGroup>
 
         <LinearLayout
+            android:id="@+id/ll_count"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="6dp"

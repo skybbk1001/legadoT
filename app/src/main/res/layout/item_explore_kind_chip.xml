@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<TextView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/chip_kind"
+    android:layout_width="wrap_content"
+    android:layout_height="30dp"
+    android:layout_marginEnd="6dp"
+    android:gravity="center"
+    android:maxLines="1"
+    android:ellipsize="end"
+    android:paddingStart="10dp"
+    android:paddingEnd="10dp"
+    android:textSize="12sp"
+    android:textStyle="normal"
+    android:includeFontPadding="false"
+    android:clickable="true"
+    android:focusable="true"
+    android:background="@color/transparent" />

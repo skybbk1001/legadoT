@@ -15,6 +15,7 @@ import io.legado.app.base.VMBaseFragment
 import io.legado.app.constant.PreferKey
 import io.legado.app.data.appDb
 import io.legado.app.data.entities.SearchBook
+import io.legado.app.data.entities.rule.ExploreKind
 import io.legado.app.databinding.FragmentExploreBinding
 import io.legado.app.help.config.AppConfig
 import io.legado.app.help.source.ExploreContainerHelp
@@ -248,6 +249,10 @@ class ExploreFragment() : VMBaseFragment<ExploreViewModel>(R.layout.fragment_exp
 
     override fun refreshContainer(state: ExploreContainerState) {
         viewModel.refreshContainer(state.container.id)
+    }
+
+    override fun switchKind(state: ExploreContainerState, kind: ExploreKind) {
+        viewModel.switchKind(state.container.id, kind)
     }
 
     override fun nextBatch(state: ExploreContainerState) {

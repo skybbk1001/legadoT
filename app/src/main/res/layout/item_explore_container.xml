@@ -7,70 +7,63 @@
     android:layout_height="wrap_content"
     android:layout_marginHorizontal="8dp"
     android:layout_marginBottom="8dp"
+    android:clipChildren="false"
+    android:clipToPadding="false"
     app:cardBackgroundColor="@color/background_card"
     app:skin_background="surfaceContainerLow"
-    app:cardCornerRadius="@dimen/radius_m"
-    app:cardElevation="1dp"
-    app:strokeWidth="0dp">
+    app:cardCornerRadius="@dimen/radius_l"
+    app:cardElevation="0dp"
+    app:strokeColor="@color/m3_outline_variant"
+    app:strokeWidth="0.5dp">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:clipChildren="false"
+        android:clipToPadding="false"
         android:orientation="vertical"
-        android:paddingTop="8dp"
-        android:paddingBottom="8dp">
+        android:paddingTop="10dp"
+        android:paddingBottom="10dp">
 
+        <!-- 信息栏:只显示书源名,不再显示分类 -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:gravity="center_vertical"
             android:orientation="horizontal"
-            android:paddingStart="12dp"
-            android:paddingEnd="12dp">
-
-            <TextView
-                android:id="@+id/tv_title"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:maxWidth="200dp"
-                android:ellipsize="end"
-                android:singleLine="true"
-                app:skin_textColor="onSurface"
-                android:textColor="@color/primaryText"
-                android:textSize="@dimen/text_body_l"
-                android:textStyle="bold"
-                tools:text="玄幻" />
+            android:paddingStart="14dp"
+            android:paddingEnd="14dp">
 
             <TextView
                 android:id="@+id/tv_source"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="6dp"
                 android:layout_weight="1"
                 android:ellipsize="end"
                 android:singleLine="true"
-                app:skin_textColor="onSurfaceVariant"
-                android:textColor="@color/secondaryText"
-                android:textSize="10sp"
+                app:skin_textColor="onSurface"
+                android:textColor="@color/primaryText"
+                android:textSize="15sp"
+                android:textStyle="bold"
                 tools:text="笔趣阁" />
 
             <TextView
                 android:id="@+id/tv_time"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="4dp"
+                android:layout_marginStart="8dp"
                 android:singleLine="true"
                 app:skin_textColor="onSurfaceVariant"
                 android:textColor="@color/secondaryText"
-                android:textSize="10sp"
+                android:textSize="12sp"
                 android:visibility="gone"
                 tools:text="3小时前" />
 
             <io.legado.app.ui.widget.anima.RotateLoading
                 android:id="@+id/rl_loading"
-                android:layout_width="18dp"
-                android:layout_height="18dp"
-                android:layout_marginEnd="6dp"
+                android:layout_width="16dp"
+                android:layout_height="16dp"
+                android:layout_marginStart="6dp"
                 android:visibility="invisible"
                 app:loading_width="2dp" />
 
@@ -79,62 +72,115 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:background="?android:attr/selectableItemBackground"
-                android:padding="4dp"
+                android:paddingStart="2dp"
+                android:paddingTop="4dp"
+                android:paddingEnd="2dp"
+                android:paddingBottom="4dp"
                 android:text="@string/explore_next_batch"
-                android:textSize="@dimen/text_caption" />
+                android:textSize="12sp" />
 
             <io.legado.app.ui.widget.text.AccentTextView
                 android:id="@+id/tv_more"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:background="?android:attr/selectableItemBackground"
-                android:padding="4dp"
+                android:paddingStart="2dp"
+                android:paddingTop="4dp"
+                android:paddingEnd="2dp"
+                android:paddingBottom="4dp"
                 android:text="@string/explore_more"
-                android:textSize="@dimen/text_caption" />
+                android:textSize="12sp" />
 
         </LinearLayout>
 
-        <io.legado.app.ui.widget.recycler.NestedScrollableHost
-            android:id="@+id/host_books"
+        <FrameLayout
+            android:id="@+id/panel_host"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:visibility="gone">
+            android:layout_marginStart="8dp"
+            android:layout_marginTop="6dp"
+            android:layout_marginEnd="8dp"
+            android:clipChildren="false"
+            android:clipToPadding="false">
 
-            <androidx.recyclerview.widget.RecyclerView
-                android:id="@+id/rv_books"
+            <FrameLayout
+                android:id="@+id/body_outline"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:clipToPadding="false"
-                android:paddingStart="8dp"
-                android:paddingEnd="8dp"
-                tools:listitem="@layout/item_explore_cover" />
+                android:layout_marginTop="29dp"
+                android:padding="4dp">
 
-        </io.legado.app.ui.widget.recycler.NestedScrollableHost>
+                <io.legado.app.ui.widget.recycler.NestedScrollableHost
+                    android:id="@+id/host_books"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:visibility="gone">
 
-        <LinearLayout
-            android:id="@+id/ll_books"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="2dp"
-            android:orientation="vertical"
-            android:visibility="gone" />
+                    <androidx.recyclerview.widget.RecyclerView
+                        android:id="@+id/rv_books"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:clipToPadding="false"
+                        android:paddingStart="4dp"
+                        android:paddingEnd="4dp"
+                        tools:listitem="@layout/item_explore_cover" />
 
-        <TextView
-            android:id="@+id/tv_error"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="12dp"
-            android:layout_marginTop="6dp"
-            android:layout_marginEnd="12dp"
-            android:background="?android:attr/selectableItemBackground"
-            android:maxLines="3"
-            android:ellipsize="end"
-            app:skin_textColor="onSurfaceVariant"
-            android:textColor="@color/secondaryText"
-            android:textSize="@dimen/text_caption"
-            android:visibility="gone"
-            tools:text="加载失败,点击重试" />
+                </io.legado.app.ui.widget.recycler.NestedScrollableHost>
+
+                <LinearLayout
+                    android:id="@+id/ll_books"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:visibility="gone" />
+
+                <TextView
+                    android:id="@+id/tv_error"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:layout_marginTop="6dp"
+                    android:layout_marginEnd="8dp"
+                    android:background="?android:attr/selectableItemBackground"
+                    android:maxLines="3"
+                    android:ellipsize="end"
+                    app:skin_textColor="onSurfaceVariant"
+                    android:textColor="@color/secondaryText"
+                    android:textSize="@dimen/text_caption"
+                    android:visibility="gone"
+                    tools:text="加载失败,点击重试" />
+
+            </FrameLayout>
+
+            <io.legado.app.ui.widget.recycler.NestedScrollableHost
+                android:id="@+id/host_kinds"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:translationZ="2dp"
+                android:visibility="gone"
+                tools:visibility="visible">
+
+                <HorizontalScrollView
+                    android:id="@+id/hsv_kinds"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:clipChildren="false"
+                    android:clipToPadding="false"
+                    android:paddingStart="4dp"
+                    android:paddingEnd="4dp"
+                    android:scrollbars="none">
+
+                    <LinearLayout
+                        android:id="@+id/ll_kinds"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal" />
+
+                </HorizontalScrollView>
+
+            </io.legado.app.ui.widget.recycler.NestedScrollableHost>
+
+        </FrameLayout>
 
     </LinearLayout>
 

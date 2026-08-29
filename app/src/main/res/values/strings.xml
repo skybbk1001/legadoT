@@ -1579,6 +1579,7 @@ Placeholders:
     <string name="explore_select_source">选择书源</string>
     <string name="explore_select_kinds">选择分类(可多选)</string>
     <string name="explore_default_style">默认样式</string>
+    <string name="explore_container_added_single">已添加 1 个容器(含 %1$d 个分类)</string>
     <string name="explore_source_not_found">书源不存在</string>
     <string name="explore_more">更多 ›</string>
     <string name="explore_next_batch">换一批</string>

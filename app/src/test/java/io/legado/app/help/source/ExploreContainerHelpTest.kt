@@ -46,6 +46,77 @@ class ExploreContainerHelpTest {
     }
 
     @Test
+    fun valid_kinds_filters_error_and_blank_url_and_dedups() {
+        val kinds = listOf(
+            ExploreKind("玄幻", "https://a.com/xh"),
+            ExploreKind("分组标题", null),
+            ExploreKind("ERROR:js", "stacktrace"),
+            ExploreKind("玄幻", "https://a.com/xh"), // 重复
+            ExploreKind("", "https://a.com/blank-title"),
+        )
+        val out = ExploreContainerHelp.validKinds(kinds)
+        assertEquals(listOf("玄幻", ""), out.map { it.title })
+    }
+
+    @Test
+    fun resolve_container_kinds_limited_to_selected() {
+        val container = ExploreContainer(
+            kindTitle = "玄幻",
+            kindUrl = "https://a.com/xh",
+            kindTitles = "玄幻,都市",
+            kindUrls = "https://a.com/xh,https://a.com/ds",
+        )
+        val sourceKinds = listOf(
+            ExploreKind("玄幻", "https://a.com/xh"),
+            ExploreKind("都市", "https://a.com/ds"),
+            ExploreKind("科幻", "https://a.com/kh"),
+        )
+        val out = ExploreContainerHelp.resolveContainerKinds(container, sourceKinds)
+        assertEquals(listOf("玄幻", "都市"), out.map { it.title })
+        assertEquals(2, out.size)
+    }
+
+    @Test
+    fun resolve_container_kinds_falls_back_to_snapshot_url() {
+        val container = ExploreContainer(
+            kindTitle = "玄幻",
+            kindUrl = "https://a.com/xh",
+            kindTitles = "已删除分类",
+            kindUrls = "https://a.com/old",
+        )
+        val out = ExploreContainerHelp.resolveContainerKinds(container, emptyList())
+        assertEquals(listOf("已删除分类"), out.map { it.title })
+        assertEquals("https://a.com/old", out[0].url)
+    }
+
+    @Test
+    fun resolve_container_kinds_empty_titles_returns_all() {
+        val container = ExploreContainer(kindTitle = "玄幻", kindUrl = "https://a.com/xh")
+        val sourceKinds = listOf(
+            ExploreKind("玄幻", "https://a.com/xh"),
+            ExploreKind("都市", "https://a.com/ds"),
+        )
+        val out = ExploreContainerHelp.resolveContainerKinds(container, sourceKinds)
+        assertEquals(listOf("玄幻", "都市"), out.map { it.title })
+    }
+
+    @Test
+    fun resolve_container_kinds_prefers_exact_snapshot_url_on_duplicate_title() {
+        val container = ExploreContainer(
+            kindTitle = "更多",
+            kindUrl = "https://a.com/city/more",
+            kindTitles = "更多",
+            kindUrls = "https://a.com/city/more",
+        )
+        val dup = listOf(
+            ExploreKind("更多", "https://a.com/fantasy/more"),
+            ExploreKind("更多", "https://a.com/city/more"),
+        )
+        val out = ExploreContainerHelp.resolveContainerKinds(container, dup)
+        assertEquals("https://a.com/city/more", out[0].url)
+    }
+
+    @Test
     fun books_json_round_trip() {
         val books = listOf(
             SearchBook(

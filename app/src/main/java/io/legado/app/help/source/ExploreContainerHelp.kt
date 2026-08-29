@@ -99,6 +99,33 @@ object ExploreContainerHelp {
 
     fun isExpired(time: Long, now: Long): Boolean = now - time > CACHE_EXPIRE_MS
 
+    /** 过滤出可用于展示/切换的有效分类:URL 非空且标题非 ERROR 前缀;按标题+URL 去重 */
+    fun validKinds(kinds: List<ExploreKind>): List<ExploreKind> =
+        kinds.filter { !it.url.isNullOrBlank() && !it.title.startsWith("ERROR:") }
+            .distinctBy { it.title to it.url }
+
+    /**
+     * 解析容器应展示的分类标签:
+     * 添加时勾选了分类(kindTitles 非空)则只展示勾选的那几个(按勾选顺序),
+     * 分类名匹配不到当前书源分类时用快照 URL 兜底;旧数据(kindTitles 空)展示书源全部分类。
+     */
+    fun resolveContainerKinds(
+        container: ExploreContainer,
+        sourceKinds: List<ExploreKind>,
+    ): List<ExploreKind> {
+        val selectedTitles = container.kindTitles.splitNotBlank(AppPattern.splitGroupRegex)
+        if (selectedTitles.isEmpty()) return validKinds(sourceKinds)
+        val valid = validKinds(sourceKinds)
+        val selectedUrls = container.kindUrls.splitNotBlank(AppPattern.splitGroupRegex)
+        return selectedTitles.mapIndexed { index, title ->
+            val snapshotUrl = selectedUrls.getOrNull(index)
+            valid.firstOrNull {
+                it.title == title && snapshotUrl != null && it.url == snapshotUrl
+            } ?: valid.firstOrNull { it.title == title }
+            ?: ExploreKind(title, snapshotUrl ?: "")
+        }.filter { !it.url.isNullOrBlank() }
+    }
+
     /** 原始分组串列表 → 切分/去重/中文排序;DAO flowGroups 与发现页 chips 共用 */
     fun dealGroups(list: List<String>): List<String> {
         val groups = linkedSetOf<String>()
