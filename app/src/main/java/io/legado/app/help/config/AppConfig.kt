@@ -297,6 +297,24 @@ object AppConfig : SharedPreferences.OnSharedPreferenceChangeListener {
             appCtx.putPrefInt(PreferKey.systemTypefaces, value)
         }
 
+    /** 全局 UI 字体:系统字族(0=默认,1=衬线,2=等宽) */
+    var globalTypefaces: Int
+        get() = appCtx.getPrefInt(PreferKey.globalTypefaces)
+        set(value) {
+            appCtx.putPrefInt(PreferKey.globalTypefaces, value)
+        }
+
+    /** 全局 UI 字体:自定义字体文件路径(content:// 或绝对路径);空=跟随系统字族 */
+    var globalFontPath: String
+        get() = appCtx.getPrefString(PreferKey.globalFontPath) ?: ""
+        set(value) {
+            if (value.isEmpty()) {
+                appCtx.removePref(PreferKey.globalFontPath)
+            } else {
+                appCtx.putPrefString(PreferKey.globalFontPath, value)
+            }
+        }
+
     var elevation: Int
         get() = if (isEInkMode) 0 else appCtx.getPrefInt(
             PreferKey.barElevation,

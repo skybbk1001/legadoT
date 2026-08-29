@@ -9,6 +9,7 @@ import android.graphics.drawable.Drawable
 import android.util.AttributeSet
 import android.view.Menu
 import android.view.View
+import android.view.ViewGroup
 import android.widget.ImageView
 import androidx.annotation.ColorInt
 import androidx.annotation.StyleRes
@@ -19,6 +20,7 @@ import androidx.core.view.children
 import com.google.android.material.appbar.AppBarLayout
 import io.legado.app.R
 import io.legado.app.help.config.AppConfig
+import io.legado.app.help.config.GlobalFont
 import io.legado.app.lib.theme.appBarBackgroundIsLight
 import io.legado.app.lib.theme.backgroundColor
 import io.legado.app.lib.theme.elevation
@@ -106,6 +108,7 @@ class TitleBar @JvmOverloads constructor(
             else -> inflate(context, R.layout.view_title_bar, this)
         }
         toolbar = findViewById(R.id.toolbar)
+        applyGlobalFontToToolbar()
 
         toolbar.apply {
             navigationIcon?.let {
@@ -330,6 +333,22 @@ class TitleBar @JvmOverloads constructor(
                 it.supportActionBar?.setDisplayHomeAsUpEnabled(displayHomeAsUp)
             }
         }
+    }
+
+    /**
+     * 全局字体兜底:Toolbar 的标题/副标题 TextView 由框架在 setTitle 时内部 new TextView 创建,
+     * 不经过 inflater 工厂。挂 OnHierarchyChangeListener,标题 TextView 一加入视图树即补刷;
+     * 同时补刷一次当前已有子视图(覆盖标题先于本监听器就位的路径)。
+     */
+    private fun applyGlobalFontToToolbar() {
+        toolbar.setOnHierarchyChangeListener(object : ViewGroup.OnHierarchyChangeListener {
+            override fun onChildViewAdded(parent: View, child: View) {
+                GlobalFont.applyToTree(child)
+            }
+
+            override fun onChildViewRemoved(parent: View, child: View) = Unit
+        })
+        GlobalFont.applyToTree(toolbar)
     }
 
 }

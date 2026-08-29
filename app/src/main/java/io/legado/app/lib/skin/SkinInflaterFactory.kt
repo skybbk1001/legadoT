@@ -26,6 +26,7 @@ import com.google.android.material.slider.Slider
 import com.google.android.material.tabs.TabLayout
 import io.legado.app.R
 import io.legado.app.constant.AppConst
+import io.legado.app.help.config.GlobalFont
 import io.legado.app.lib.theme.AppColorScheme
 import io.legado.app.lib.theme.accentColor
 import io.legado.app.lib.theme.backgroundColor
@@ -71,13 +72,14 @@ class SkinInflaterFactory(activity: AppCompatActivity) : LayoutInflater.Factory2
         try {
             val hasSkin = ta.indexCount > 0
             val view = delegate.createView(parent, name, context, attrs)
-                ?: (if (name in RULE_A_FALLBACK_NAMES || hasSkin) {
+                ?: (if (name in RULE_A_FALLBACK_NAMES || hasSkin || name.startsWith(APP_VIEW_PREFIX)) {
                     createFallbackView(name, context, attrs)
                 } else null)
                 ?: return null
             applyTypeDefaults(view)
             applyButtonStyleTint(view, attrs)
             applyTabStyleTint(view, attrs)
+            applyGlobalTypeface(view)
             if (hasSkin) applySkinAttrs(view, ta)
             return view
         } finally {
@@ -230,6 +232,21 @@ class SkinInflaterFactory(activity: AppCompatActivity) : LayoutInflater.Factory2
         }
     }
 
+    /**
+     * 全局字体:对每个 inflate 出来的 TextView 施加用户选择的字体。
+     * 框架内部 new TextView 创建、不走 inflater 的两类由各自通道补刷:
+     * Toolbar 标题/副标题在 TitleBar 用 OnHierarchyChangeListener 兜底;
+     * TabLayout 标签文字经 [GlobalFont.applyToTabLayout] 事件驱动补刷
+     * (标签 TextView 在 attach 后的异步队列里才创建,inflate 期 post 会扑空)。
+     */
+    private fun applyGlobalTypeface(view: View) {
+        if (view is TextView) {
+            GlobalFont.applyTo(view)
+        } else if (view is TabLayout) {
+            GlobalFont.applyToTabLayout(view)
+        }
+    }
+
     private fun applyTabStyleTint(view: View, attrs: AttributeSet) {
         if (view.javaClass != TabLayout::class.java) return
         if (attrs.styleAttribute != R.style.Widget_App_TabLayout_Surface) return
@@ -287,7 +304,14 @@ class SkinInflaterFactory(activity: AppCompatActivity) : LayoutInflater.Factory2
             "android.widget.", "android.view.", "android.webkit.", "android.app.",
         )
 
-        /** AppCompat 不创建、但规则 A/按钮档施色需要实例的名字 */
+        /**
+         * 本应用自定义视图包前缀:这些类 AppCompat 不接管,若不走 fallback 反射创建,
+         * 其中的 TextView 子族(AccentTextView/SecondaryTextView 等)将错过全局字体。
+         * 反射创建失败仍回落系统原路径,行为安全。
+         */
+        private const val APP_VIEW_PREFIX = "io.legado.app."
+
+        /** AppCompat 不创建、但规则 A/按钮档施色或全局字体需要实例的名字 */
         private val RULE_A_FALLBACK_NAMES = hashSetOf(
             "ProgressBar",
             "com.google.android.material.button.MaterialButton",
@@ -295,6 +319,7 @@ class SkinInflaterFactory(activity: AppCompatActivity) : LayoutInflater.Factory2
             "com.google.android.material.checkbox.MaterialCheckBox",
             "com.google.android.material.radiobutton.MaterialRadioButton",
             "com.google.android.material.slider.Slider",
+            "com.google.android.material.tabs.TabLayout",
             "androidx.appcompat.widget.AppCompatCheckBox",
             "androidx.appcompat.widget.AppCompatRadioButton",
             "androidx.appcompat.widget.AppCompatSeekBar",

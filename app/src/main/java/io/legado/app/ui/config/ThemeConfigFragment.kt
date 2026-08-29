@@ -18,18 +18,23 @@ import io.legado.app.lib.prefs.ThemePreviewPreference
 import io.legado.app.lib.prefs.fragment.PreferenceFragment
 import io.legado.app.lib.theme.WallpaperSeed
 import io.legado.app.lib.theme.primaryColor
+import io.legado.app.ui.font.FontSelectDialog
 import io.legado.app.ui.widget.number.NumberPickerDialog
 import io.legado.app.utils.getPrefBoolean
 import io.legado.app.utils.getPrefString
 import io.legado.app.utils.postEvent
 import io.legado.app.utils.putPrefInt
 import io.legado.app.utils.setEdgeEffectColor
+import io.legado.app.utils.showDialogFragment
 import io.legado.app.utils.startActivity
 import io.legado.app.utils.toastOnUi
+import java.io.File
+import java.net.URLDecoder
 
 @Suppress("SameParameterValue")
 class ThemeConfigFragment : PreferenceFragment(),
-    SharedPreferences.OnSharedPreferenceChangeListener {
+    SharedPreferences.OnSharedPreferenceChangeListener,
+    FontSelectDialog.CallBack {
 
     override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
         addPreferencesFromResource(R.xml.pref_config_theme)
@@ -43,6 +48,7 @@ class ThemeConfigFragment : PreferenceFragment(),
         }
         upPreferenceSummary(PreferKey.barElevation, AppConfig.elevation.toString())
         upPreferenceSummary(PreferKey.fontScale)
+        upPreferenceSummary(PreferKey.globalFont)
         findPreference<SwitchPreference>(PreferKey.wallpaperFollow)?.setOnPreferenceChangeListener { _, newValue ->
             val enabled = newValue as Boolean
             val autoUpdate = getPrefBoolean(PreferKey.wallpaperAutoUpdate, true)
@@ -139,6 +145,8 @@ class ThemeConfigFragment : PreferenceFragment(),
                     recreateActivities()
                 }
 
+            PreferKey.globalFont -> showDialogFragment(FontSelectDialog())
+
             "customColorConfig" -> startActivity<ConfigActivity> {
                 putExtra("configTag", ConfigTag.THEME_COLOR_CONFIG)
             }
@@ -161,6 +169,34 @@ class ThemeConfigFragment : PreferenceFragment(),
         postEvent(EventBus.RECREATE, "")
     }
 
+    // --- FontSelectDialog.CallBack: 全局 UI 字体 ---
+    override val curFontPath: String
+        get() = AppConfig.globalFontPath
+
+    override fun selectFont(path: String) {
+        AppConfig.globalFontPath = path
+        recreateActivities()
+    }
+
+    override fun selectSystemTypeface(index: Int) {
+        AppConfig.globalTypefaces = index
+        AppConfig.globalFontPath = ""
+        recreateActivities()
+    }
+
+    private fun globalFontSummary(): String {
+        val path = AppConfig.globalFontPath
+        if (path.isNotEmpty()) {
+            return kotlin.runCatching {
+                URLDecoder.decode(path, "utf-8")
+                    .substringAfterLast(File.separator)
+                    .substringAfterLast("/")
+            }.getOrNull() ?: path
+        }
+        val typefaces = requireContext().resources.getStringArray(R.array.system_typefaces)
+        return typefaces.getOrElse(AppConfig.globalTypefaces) { typefaces[0] }
+    }
+
     private fun upPreferenceSummary(preferenceKey: String, value: String? = null) {
         val preference = findPreference<Preference>(preferenceKey) ?: return
         when (preferenceKey) {
@@ -171,6 +207,8 @@ class ThemeConfigFragment : PreferenceFragment(),
                 val fontScale = AppContextWrapper.getFontScale(requireContext())
                 preference.summary = getString(R.string.font_scale_summary, fontScale)
             }
+
+            PreferKey.globalFont -> preference.summary = globalFontSummary()
 
             else -> preference.summary = value
         }

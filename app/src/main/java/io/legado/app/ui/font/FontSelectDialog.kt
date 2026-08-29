@@ -108,8 +108,12 @@ class FontSelectDialog : BaseDialogFragment(R.layout.dialog_font_select),
                     items(
                         requireContext.resources.getStringArray(R.array.system_typefaces).toList()
                     ) { _, i ->
-                        AppConfig.systemTypefaces = i
-                        onDefaultFontChange()
+                        val cb = callBack
+                        if (cb == null) {
+                            AppConfig.systemTypefaces = i
+                        } else {
+                            cb.selectSystemTypeface(i)
+                        }
                         dismissAllowingStateLoss()
                     }
                 }
@@ -193,15 +197,20 @@ class FontSelectDialog : BaseDialogFragment(R.layout.dialog_font_select),
         }
     }
 
-    private fun onDefaultFontChange() {
-        callBack?.selectFont("")
-    }
-
     private val callBack: CallBack?
         get() = (parentFragment as? CallBack) ?: (activity as? CallBack)
 
     interface CallBack {
         fun selectFont(path: String)
         val curFontPath: String
+
+        /**
+         * 系统字族选择(默认/衬线/等宽)。默认实现=阅读页字体行为(写 [AppConfig.systemTypefaces]
+         * 并回落自定义路径);全局字体宿主覆写为写入全局字族偏好。
+         */
+        fun selectSystemTypeface(index: Int) {
+            AppConfig.systemTypefaces = index
+            selectFont("")
+        }
     }
 }

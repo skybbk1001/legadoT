@@ -95,7 +95,7 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro', 'cronet-proguard-rules.pro'
         }
         debug {
-            if (project.hasProperty("RELEASE _STORE_FILE")) {
+            if (project.hasProperty("RELEASE_STORE_FILE")) {
                 signingConfig = signingConfigs.myConfig
             }
             manifestPlaceholders.put("app_name", "@string/app_name")

@@ -23,6 +23,7 @@ import io.legado.app.constant.AppConst
 import io.legado.app.constant.AppLog
 import io.legado.app.constant.Theme
 import io.legado.app.help.config.AppConfig
+import io.legado.app.help.config.GlobalFont
 import io.legado.app.help.config.ThemeConfig
 import io.legado.app.lib.theme.AppThemeInstaller
 import io.legado.app.lib.theme.backgroundColor
@@ -106,6 +107,8 @@ abstract class BaseActivity<VB : ViewBinding>(
         }
         observeLiveBus()
         onActivityCreated(savedInstanceState)
+        // 全局字体兜底:覆盖 inflater 工厂与 TitleBar/TabLayout 钩子之外、运行时 new 出的 TextView
+        window.decorView.post { GlobalFont.applyToTree(window.decorView) }
     }
 
     @RequiresApi(Build.VERSION_CODES.O)

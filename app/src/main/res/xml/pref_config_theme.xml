@@ -75,6 +75,13 @@
             android:title="@string/bar_elevation" />
 
         <io.legado.app.lib.prefs.Preference
+            android:key="globalFont"
+            android:summary="@string/default_font"
+            android:title="@string/global_font"
+            app:allowDividerAbove="false"
+            app:allowDividerBelow="false" />
+
+        <io.legado.app.lib.prefs.Preference
             android:key="fontScale"
             android:summary="@string/font_scale_summary"
             android:title="@string/font_scale"
