@@ -1255,6 +1255,8 @@ Placeholders:
     <string name="welcome_style_summary">Startup screen image and whether to display text, etc.</string>
     <string name="show_welcome_text">Display text</string>
     <string name="welcome_text">阅读|享受美好时光</string>
+    <string name="show_welcome">Show welcome page</string>
+    <string name="show_welcome_summary">Whether to show the welcome page when starting the app</string>
     <string name="custom_welcome">Customize the welcome page</string>
     <string name="custom_welcome_summary">Whether to use a customized welcome page</string>
     <string name="show_icon">Show icon</string>

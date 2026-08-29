@@ -131,6 +131,7 @@ object PreferKey {
     const val tocCountWords = "tocCountWords"
     const val enableReadRecord = "enableReadRecord"
     const val localBookImportSort = "localBookImportSort"
+    const val showWelcome = "showWelcome"
     const val customWelcome = "customWelcome"
     const val welcomeImage = "welcomeImagePath"
     const val welcomeImageDark = "welcomeImagePathDark"

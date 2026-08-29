@@ -824,6 +824,12 @@ object AppConfig : SharedPreferences.OnSharedPreferenceChangeListener {
             appCtx.putPrefBoolean(PreferKey.enableMangaGray, value)
         }
 
+    var showWelcome
+        get() = appCtx.getPrefBoolean(PreferKey.showWelcome, true)
+        set(value) {
+            appCtx.putPrefBoolean(PreferKey.showWelcome, value)
+        }
+
     var welcomeImage
         get() = appCtx.getPrefString(PreferKey.welcomeImage)
         set(value) {

@@ -35,6 +35,8 @@ open class WelcomeActivity : BaseActivity<ActivityWelcomeBinding>() {
         // 避免从桌面启动程序后，会重新实例化入口类的activity
         if (intent.flags and Intent.FLAG_ACTIVITY_BROUGHT_TO_FRONT != 0) {
             finish()
+        } else if (!AppConfig.showWelcome) {
+            startMainActivity()
         } else {
             binding.root.postDelayed(600) { startMainActivity() }
         }
@@ -47,6 +49,10 @@ open class WelcomeActivity : BaseActivity<ActivityWelcomeBinding>() {
     }
 
     override fun upBackgroundImage() {
+        if (!AppConfig.showWelcome) {
+            super.upBackgroundImage()
+            return
+        }
         if (getPrefBoolean(PreferKey.customWelcome)) {
             kotlin.runCatching {
                 when (ThemeConfig.getTheme()) {

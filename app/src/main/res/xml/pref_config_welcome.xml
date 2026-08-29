@@ -3,7 +3,16 @@
     xmlns:app="http://schemas.android.com/apk/res-auto">
 
     <io.legado.app.lib.prefs.SwitchPreference
+        android:defaultValue="true"
+        android:key="showWelcome"
+        android:summary="@string/show_welcome_summary"
+        android:title="@string/show_welcome"
+        app:allowDividerAbove="false"
+        app:allowDividerBelow="false" />
+
+    <io.legado.app.lib.prefs.SwitchPreference
         android:defaultValue="false"
+        android:dependency="showWelcome"
         android:key="customWelcome"
         android:summary="@string/custom_welcome_summary"
         android:title="@string/custom_welcome"
@@ -12,6 +21,7 @@
 
     <io.legado.app.lib.prefs.PreferenceCategory
         android:key="dayThemeCategory"
+        android:dependency="showWelcome"
         android:title="@string/day"
         app:allowDividerAbove="true"
         app:allowDividerBelow="false">
@@ -42,6 +52,7 @@
 
     <io.legado.app.lib.prefs.PreferenceCategory
         android:key="nightThemeCategory"
+        android:dependency="showWelcome"
         android:title="@string/night"
         app:allowDividerAbove="true"
         app:allowDividerBelow="false">
