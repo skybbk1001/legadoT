@@ -9,8 +9,9 @@ import android.widget.FrameLayout
 import androidx.appcompat.widget.AppCompatButton
 import androidx.appcompat.widget.AppCompatImageView
 import androidx.appcompat.widget.AppCompatTextView
-import com.google.android.material.loadingindicator.LoadingIndicator
+import com.google.android.material.progressindicator.CircularProgressIndicator
 import io.legado.app.R
+import io.legado.app.help.config.AppConfig
 
 @Suppress("unused")
 class DynamicFrameLayout @JvmOverloads constructor(
@@ -25,12 +26,9 @@ class DynamicFrameLayout @JvmOverloads constructor(
 
     private var progressView: View? = null
 
-    // view_loading.xml 的 loading_progress 已从 ContentLoadingProgressBar(extends ProgressBar)
-    // 换成 M3 LoadingIndicator(直接 extends View，不再是 ProgressBar 子类)。
-    // 该字段本身只写不读（无 show()/hide() 调用点），但类型必须跟着换，否则这里的
-    // findViewById<ProgressBar> 在运行时会对 LoadingIndicator 实例做非法 checkcast，直接抛
-    // ClassCastException——编译期完全不会报错，是纯运行时炸弹。
-    private var progressBar: LoadingIndicator? = null
+    // view_loading.xml 的 loading_progress 已从 ContentLoadingProgressBar 换成 M3 CircularProgressIndicator。
+    // 见 kickProgressSpinner()：ViewStub 首展时序下原生动画启动路径不可靠，需显式驱动。
+    private var progressBar: CircularProgressIndicator? = null
 
     private var contentView: View? = null
 
@@ -124,8 +122,27 @@ class DynamicFrameLayout @JvmOverloads constructor(
         setViewVisible(errorView, false)
         setViewVisible(contentView, false)
         setViewVisible(progressView, true)
+        kickProgressSpinner()
 
         dispatchVisibilityChanged(ViewSwitcher.SHOW_PROGRESS_VIEW)
+    }
+
+    /**
+     * 显式驱动「加载中」转圈显示。ViewStub 首次 inflate 时 spinner 即以 VISIBLE 状态 attach，
+     * 随后的 setViewVisible(progressView, true) 是空操作——不存在可见性翻转去触发
+     * BaseProgressIndicator 的原生动画启动路径（attach 时 internalShow() 里的 setVisibility(VISIBLE)
+     * 对本就 VISIBLE 的 View 也是空操作），转圈会停在静止弧上。此处补一次显式驱动；
+     * 后续 INVISIBLE→VISIBLE 翻转走原生路径亦有效，重复 setVisible 幂等无副作用。
+     * e-ink 模式 animate=false：静态圆环定格、不启动动画。
+     */
+    private fun kickProgressSpinner() {
+        val pb = progressBar ?: return
+        val show = Runnable {
+            if (pb.visibility == View.VISIBLE && progressView?.visibility == View.VISIBLE) {
+                pb.indeterminateDrawable?.setVisible(true, false, !AppConfig.isEInkMode)
+            }
+        }
+        if (pb.isAttachedToWindow) show.run() else pb.post(show)
     }
 
     override fun showContentView() {

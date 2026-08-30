@@ -5,10 +5,11 @@
     android:gravity="center_horizontal"
     android:orientation="vertical">
 
-    <com.google.android.material.loadingindicator.LoadingIndicator
+    <com.google.android.material.progressindicator.CircularProgressIndicator
         android:id="@+id/loading_progress"
-        android:layout_width="48dp"
-        android:layout_height="48dp" />
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:indeterminate="true" />
 
     <androidx.appcompat.widget.AppCompatTextView
         android:id="@+id/tv_loading_message"

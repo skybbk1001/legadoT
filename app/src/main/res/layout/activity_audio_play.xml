@@ -276,11 +276,13 @@
                 app:layout_constraintTop_toTopOf="parent"
                 tools:ignore="ImageContrastCheck" />
 
-            <com.google.android.material.loadingindicator.LoadingIndicator
+            <com.google.android.material.progressindicator.CircularProgressIndicator
                 android:id="@+id/progress_loading"
                 android:layout_width="48dp"
                 android:layout_height="48dp"
                 android:visibility="invisible"
+                android:indeterminate="true"
+                app:indicatorColor="?attr/colorOnPrimary"
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"

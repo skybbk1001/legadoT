@@ -31,7 +31,7 @@ class AudioPlayerTest {
         assertTrue("大圆角方卡", xml.contains("MaterialCardView") && xml.contains("iv_cover"))
         assertTrue("进度 Slider 化", xml.contains("slider.Slider") && !xml.contains("<SeekBar"))
         assertTrue("写死白/黑退役", !xml.contains("md_white_1000") && !xml.contains("md_black_1000"))
-        assertTrue("加载 LoadingIndicator", xml.contains("loadingindicator.LoadingIndicator") && !xml.contains("<ProgressBar"))
+        assertTrue("加载 CircularProgressIndicator", xml.contains("progressindicator.CircularProgressIndicator") && !xml.contains("<ProgressBar"))
         val act = File("src/main/java/io/legado/app/ui/book/audio/AudioPlayActivity.kt").readText()
         assertTrue("接氛围管线", act.contains("applyAmbientBackground"))
         assertTrue("播放键 morph", act.contains("ShapeMorph"))
