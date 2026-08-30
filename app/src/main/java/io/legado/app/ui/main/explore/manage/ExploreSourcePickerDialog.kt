@@ -18,8 +18,10 @@ import io.legado.app.data.appDb
 import io.legado.app.data.entities.BookSourcePart
 import io.legado.app.databinding.DialogExploreSourcePickerBinding
 import io.legado.app.databinding.ItemSourcePickerBinding
+import io.legado.app.ui.widget.popupActionMenu
 import io.legado.app.utils.setLayout
 import io.legado.app.utils.showDialogFragment
+import io.legado.app.utils.toastOnUi
 import io.legado.app.utils.viewbindingdelegate.viewBinding
 import kotlinx.coroutines.Dispatchers.IO
 import kotlinx.coroutines.Job
@@ -87,6 +89,23 @@ class ExploreSourcePickerDialog : BaseDialogFragment(R.layout.dialog_explore_sou
         dismiss()
     }
 
+    /** 长按书源:禁用其发现,禁用后不再出现在本选择器(flowExplore 仅查 enabledExplore = 1) */
+    private fun showSourceMenu(source: BookSourcePart, anchor: View) {
+        popupActionMenu(requireContext()) {
+            item(getString(R.string.disable_explore), "disableExplore")
+            danger("disableExplore")
+        }.show(anchor) { action ->
+            when (action) {
+                "disableExplore" -> {
+                    viewLifecycleOwner.lifecycleScope.launch(IO) {
+                        appDb.bookSourceDao.enableExplore(source.bookSourceUrl, false)
+                    }
+                    toastOnUi(R.string.disabled_explore)
+                }
+            }
+        }
+    }
+
     private inner class SourceAdapter(context: Context) :
         RecyclerAdapter<BookSourcePart, ItemSourcePickerBinding>(context) {
 
@@ -107,6 +126,10 @@ class ExploreSourcePickerDialog : BaseDialogFragment(R.layout.dialog_explore_sou
         override fun registerListener(holder: ItemViewHolder, binding: ItemSourcePickerBinding) {
             binding.root.setOnClickListener {
                 getItem(holder.layoutPosition)?.let { onSourceClick(it) }
+            }
+            binding.root.setOnLongClickListener {
+                getItem(holder.layoutPosition)?.let { showSourceMenu(it, binding.root) }
+                true
             }
         }
     }
