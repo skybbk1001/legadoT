@@ -34,7 +34,6 @@ import io.legado.app.constant.NotificationId
 import io.legado.app.constant.PreferKey
 import io.legado.app.constant.Status
 import io.legado.app.data.appDb
-import io.legado.app.data.entities.RoleCast
 import io.legado.app.help.MediaHelp
 import io.legado.app.help.book.BookHelp
 import io.legado.app.help.book.ContentProcessor
@@ -47,9 +46,6 @@ import io.legado.app.lib.permission.PermissionsCompat
 import io.legado.app.model.CacheBook
 import io.legado.app.model.ReadAloud
 import io.legado.app.model.ReadBook
-import io.legado.app.model.readaloud.RoleAnnotator
-import io.legado.app.model.readaloud.RoleCastManager
-import io.legado.app.model.readaloud.SpeechScript
 import io.legado.app.receiver.MediaButtonReceiver
 import io.legado.app.ui.book.read.ReadBookActivity
 import io.legado.app.ui.book.read.page.entities.TextChapter
@@ -62,13 +58,10 @@ import io.legado.app.utils.observeEvent
 import io.legado.app.utils.observeSharedPreferences
 import io.legado.app.utils.postEvent
 import io.legado.app.utils.toastOnUi
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers.IO
 import kotlinx.coroutines.Dispatchers.Main
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import splitties.init.appCtx
@@ -189,16 +182,6 @@ abstract class BaseReadAloudService : BaseService(),
     }
     internal var contentList = emptyList<String>()
     internal var nowSpeak: Int = 0
-    /** 段内片段游标, 与 nowSpeak 一起构成朗读位置 */
-    internal var nowSegment: Int = 0
-    @Volatile
-    internal var speechScript: SpeechScript? = null
-    /** 旁白 casting 的缓存, 由 [prepareSpeechScript] 在 IO 上下文写入 */
-    @Volatile
-    private var speechNarratorCast: RoleCast? = null
-    /** 角色分析期间的通知副标题状态位, 下载协程写、通知协程读 */
-    @Volatile
-    private var analyzingRoles = false
     internal var readAloudNumber: Int = 0
     internal var textChapter: TextChapter? = null
     internal var pageIndex = 0
@@ -258,9 +241,6 @@ abstract class BaseReadAloudService : BaseService(),
             val startPos = it.getInt("startPos")
             newReadAloud(play, pageIndex, startPos)
         }
-        observeEvent<String>(EventBus.ROLE_CAST_CHANGED) { bookUrl ->
-            if (ReadBook.book?.bookUrl == bookUrl) onRoleCastChanged()
-        }
         observeSharedPreferences { _, key ->
             when (key) {
                 PreferKey.ignoreAudioFocus,
@@ -276,7 +256,6 @@ abstract class BaseReadAloudService : BaseService(),
         restoreReadAloudFollow()
         updateReadAloudChapterIndex(-1)
         readAloudChapterStart = -1
-        analyzingRoles = false
         if (useWakeLock) {
             wakeLock.release()
             wifiLock?.release()
@@ -344,8 +323,6 @@ abstract class BaseReadAloudService : BaseService(),
                 }
             }
             nowSpeak = textChapter.getParagraphNum(readAloudNumber + 1, readAloudByPage) - 1
-            nowSegment = 0
-            resetSpeechScript()
             if (!readAloudByPage && startPos == 0 && !toLast) {
                 pos = page.chapterPosition -
                         textChapter.paragraphs[nowSpeak].chapterPosition
@@ -354,7 +331,6 @@ abstract class BaseReadAloudService : BaseService(),
                 toLast = false
                 readAloudNumber = textChapter.getLastParagraphPosition()
                 nowSpeak = contentList.lastIndex
-                nowSegment = 0
                 if (page.paragraphs.size == 1) {
                     pos = page.chapterPosition -
                             textChapter.paragraphs[nowSpeak].chapterPosition
@@ -425,120 +401,6 @@ abstract class BaseReadAloudService : BaseService(),
         postEvent(EventBus.TTS_PROGRESS, progress)
     }
 
-    /** 分析期通知副标题改显角色分析中, 状态不变时不重发通知 */
-    private fun upAnalyzingRoles(analyzing: Boolean) {
-        if (analyzingRoles == analyzing) return
-        analyzingRoles = analyzing
-        upReadAloudNotification()
-    }
-
-    /**
-     * 未标注或标注失败时退化为每段一个旁白片段。
-     * 播放回调线程直接调用, 只读 [speechNarratorCast] 缓存, 不触库。
-     */
-    internal fun currentScript(): SpeechScript {
-        speechScript?.let { return it }
-        val fallback = speechNarratorCast ?: RoleCast(roleName = RoleCast.NARRATOR)
-        return SpeechScript.narratorOnly(contentList, fallback).also { speechScript = it }
-    }
-
-    /**
-     * 脚本就绪的唯一挂起入口: 在 IO 上下文备好旁白 casting 与角色标注, 之后 [currentScript] 只走缓存。
-     * 标注前先落纯旁白脚本, 覆盖掉播放回调路径可能用占位 casting 建成的那份,
-     * 分析期间回调线程取到的也是可播序列。
-     */
-    internal suspend fun prepareSpeechScript() {
-        if (speechNarratorCast != null) {
-            currentScript()
-            return
-        }
-        val cast = resolveNarratorCast()
-        val paragraphs = contentList
-        speechScript = SpeechScript.narratorOnly(paragraphs, cast)
-        upAnalyzingRoles(AppConfig.multiRoleReadAloud)
-        val script = try {
-            buildScriptFor(
-                textChapter?.chapter?.index ?: -1,
-                paragraphs,
-                cast,
-                notifyFailure = true
-            )
-        } finally {
-            upAnalyzingRoles(false)
-        }
-        // 标注跨越换章时 contentList 已换新, 旧段落表建出的脚本作废, 留给新一轮重建
-        if (contentList !== paragraphs) return
-        speechScript = script
-        speechNarratorCast = cast
-        // 「从这里朗读」的 paragraphStartPos 可落在段中, 起播片段取覆盖它的那个。
-        // 纯旁白脚本每段恰好一个片段, segmentIndexAt 恒得 0, 游标保持 newReadAloud 置的初值。
-        nowSegment = script.segmentIndexAt(nowSpeak, paragraphStartPos)
-    }
-
-    /**
-     * 四道降级: 无书 / 开关关闭 / 章号未知 / 标注失败, 一律退化为每段一个旁白片段。
-     * casting 取库抛错走同一条退化路径, 朗读不因标注链路中断; 取消照旧向上传播。
-     *
-     * @param fallback 未知角色所用的 casting, 即旁白
-     */
-    internal suspend fun buildScriptFor(
-        chapterIndex: Int,
-        paragraphs: List<String>,
-        fallback: RoleCast,
-        notifyFailure: Boolean = false
-    ): SpeechScript {
-        val narratorOnly = SpeechScript.narratorOnly(paragraphs, fallback)
-        val book = ReadBook.book
-        if (book == null || !AppConfig.multiRoleReadAloud || chapterIndex < 0) {
-            return narratorOnly
-        }
-        return try {
-            val annotated = RoleAnnotator.annotate(book.bookUrl, chapterIndex, paragraphs)
-                ?: return narratorOnly.also {
-                    if (notifyFailure) toastOnUi(R.string.role_annotation_fallback)
-                }
-            val canonical = RoleCastManager.canonicalize(book.bookUrl, annotated)
-            RoleCastManager.ensureCast(book.bookUrl, canonical.roles, chapterIndex)
-            SpeechScript(
-                paragraphs = paragraphs,
-                segments = canonical.segments,
-                cast = RoleCastManager.castOf(book.bookUrl),
-                fallback = fallback
-            )
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            currentCoroutineContext().ensureActive()
-            AppLog.put("角色脚本构建失败\n${e.localizedMessage}", e)
-            if (notifyFailure) toastOnUi(R.string.role_annotation_fallback)
-            narratorOnly
-        }
-    }
-
-    /** 取库失败退化为占位 casting, 朗读照常起播; 取消照旧向上传播 */
-    private suspend fun resolveNarratorCast(): RoleCast {
-        val book = ReadBook.book ?: return RoleCast(roleName = RoleCast.NARRATOR)
-        return try {
-            RoleCastManager.narratorCast(book.bookUrl)
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            currentCoroutineContext().ensureActive()
-            AppLog.put("旁白配音读取失败\n${e.localizedMessage}", e)
-            RoleCast(roleName = RoleCast.NARRATOR)
-        }
-    }
-
-    /** 章节或朗读列表变更后, 脚本与 casting 缓存一并作废 */
-    internal fun resetSpeechScript() {
-        speechScript = null
-        speechNarratorCast = null
-    }
-
-    internal open fun onRoleCastChanged() {
-        resetSpeechScript()
-    }
-
     private fun prevP() {
         if (nowSpeak > 0) {
             playStop()
@@ -547,7 +409,6 @@ abstract class BaseReadAloudService : BaseService(),
                 readAloudNumber -= contentList[nowSpeak].length + 1 + paragraphStartPos
                 paragraphStartPos = 0
             } while (contentList[nowSpeak].matches(AppPattern.notReadAloudRegex))
-            nowSegment = 0
             textChapter?.let {
                 if (readAloudByPage) {
                     val paragraphs = it.getParagraphs(true)
@@ -572,7 +433,6 @@ abstract class BaseReadAloudService : BaseService(),
             readAloudNumber += contentList[nowSpeak].length.plus(1) - paragraphStartPos
             paragraphStartPos = 0
             nowSpeak++
-            nowSegment = 0
             textChapter?.let {
                 if (readAloudByPage) {
                     val paragraphs = it.getParagraphs(true)
@@ -843,11 +703,7 @@ abstract class BaseReadAloudService : BaseService(),
             else -> getString(R.string.read_aloud_t)
         }
         nTitle += ": ${ReadBook.book?.name}"
-        var nSubtitle = if (analyzingRoles) {
-            getString(R.string.role_analyzing)
-        } else {
-            ReadBook.curTextChapter?.title
-        }
+        var nSubtitle = ReadBook.curTextChapter?.title
         if (nSubtitle.isNullOrBlank())
             nSubtitle = getString(R.string.read_aloud_s)
         val builder = NotificationCompat
@@ -991,12 +847,10 @@ abstract class BaseReadAloudService : BaseService(),
             pageIndex = 0
             readAloudNumber = 0
             nowSpeak = 0
-            nowSegment = 0
             paragraphStartPos = 0
             contentList = nextTextChapter.getNeedReadAloud(0, readAloudByPage, 0)
                 .split("\n")
                 .filter { it.isNotEmpty() }
-            resetSpeechScript()
             contentList.isNotEmpty()
         }.onSuccess(Main) { canContinue ->
             if (canContinue) {

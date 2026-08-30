@@ -16,13 +16,11 @@ import io.legado.app.constant.PreferKey
 import io.legado.app.help.IntentHelp
 import io.legado.app.help.config.AppConfig
 import io.legado.app.lib.prefs.SwitchPreference
-import io.legado.app.lib.dialogs.alert
 import io.legado.app.lib.prefs.fragment.PreferenceFragment
 import io.legado.app.lib.theme.backgroundColor
 import io.legado.app.lib.theme.primaryColor
 import io.legado.app.model.ReadAloud
 import io.legado.app.service.BaseReadAloudService
-import io.legado.app.utils.StringUtils
 import io.legado.app.utils.postEvent
 import io.legado.app.utils.setEdgeEffectColor
 import io.legado.app.utils.setLayout
@@ -79,23 +77,6 @@ class ReadAloudConfigDialog : BasePrefDialogFragment() {
             findPreference<SwitchPreference>(PreferKey.pauseReadAloudWhilePhoneCalls)?.let {
                 it.isEnabled = AppConfig.ignoreAudioFocus
             }
-            findPreference<SwitchPreference>(PreferKey.multiRoleReadAloud)?.let {
-                it.isEnabled = StringUtils.isNumeric(ReadAloud.ttsEngine ?: "")
-                if (!AppConfig.aiRoleConsent && it.isChecked) it.isChecked = false
-                it.setOnPreferenceChangeListener { preference, newValue ->
-                    if (newValue != true || AppConfig.aiRoleConsent) return@setOnPreferenceChangeListener true
-                    alert {
-                        setTitle(R.string.multi_role_read_aloud)
-                        setMessage(R.string.ai_role_consent_message)
-                        positiveButton(R.string.yes) {
-                            AppConfig.aiRoleConsent = true
-                            (preference as SwitchPreference).isChecked = true
-                        }
-                        negativeButton(R.string.no)
-                    }
-                    false
-                }
-            }
         }
 
         override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
@@ -117,7 +98,6 @@ class ReadAloudConfigDialog : BasePrefDialogFragment() {
             when (preference.key) {
                 PreferKey.ttsEngine -> showDialogFragment(SpeakEngineDialog())
                 "sysTtsConfig" -> IntentHelp.openTTSSetting()
-                "aiService" -> AiConfigDialog().show(childFragmentManager, "aiConfigDialog")
             }
             return super.onPreferenceTreeClick(preference)
         }
@@ -136,13 +116,6 @@ class ReadAloudConfigDialog : BasePrefDialogFragment() {
                 PreferKey.ignoreAudioFocus -> {
                     findPreference<SwitchPreference>(PreferKey.pauseReadAloudWhilePhoneCalls)?.let {
                         it.isEnabled = AppConfig.ignoreAudioFocus
-                    }
-                }
-
-                PreferKey.ttsEngine -> {
-                    findPreference<SwitchPreference>(PreferKey.multiRoleReadAloud)?.let {
-                        it.isEnabled = StringUtils.isNumeric(ReadAloud.ttsEngine ?: "")
-                        if (!it.isEnabled) it.isChecked = false
                     }
                 }
             }

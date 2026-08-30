@@ -11,7 +11,6 @@ import androidx.fragment.app.viewModels
 import io.legado.app.R
 import io.legado.app.base.BaseDialogFragment
 import io.legado.app.data.entities.HttpTTS
-import io.legado.app.data.entities.TtsVoice
 import io.legado.app.databinding.DialogHttpTtsEditBinding
 import io.legado.app.databinding.ViewCodeEditFieldBinding
 import io.legado.app.lib.dialogs.alert
@@ -68,8 +67,7 @@ class HttpTtsEditDialog() : BaseDialogFragment(R.layout.dialog_http_tts_edit, tr
         val header: String,
         val jsLib: String,
         val enabledCookieJar: Boolean,
-        val pauseDuration: String,
-        val voices: String
+        val pauseDuration: String
     )
 
     private data class CodeField(
@@ -154,24 +152,17 @@ class HttpTtsEditDialog() : BaseDialogFragment(R.layout.dialog_http_tts_edit, tr
         jsLibField.codeView.setText(httpTTS.jsLib)
         binding.cbIsEnableCookie.isChecked = httpTTS.enabledCookieJar == true
         binding.tvPauseDuration.setText(httpTTS.pauseDuration.takeIf { it > 0 }?.toString().orEmpty())
-        binding.tvVoices.setText(httpTTS.voices)
     }
 
     override fun onMenuItemClick(item: MenuItem?): Boolean {
         when (item?.itemId) {
-            R.id.menu_save -> dataFromView().let { httpTts ->
-                if (validateVoices(httpTts.voices)) {
-                    viewModel.save(httpTts) {
-                        rememberInitialDraft()
-                        toastOnUi("保存成功")
-                    }
-                }
+            R.id.menu_save -> viewModel.save(dataFromView()) {
+                rememberInitialDraft()
+                toastOnUi("保存成功")
             }
             R.id.menu_login -> dataFromView().let { httpTts ->
                 if (httpTts.loginUrl.isNullOrBlank()) {
                     toastOnUi("登录url不能为空")
-                } else if (!validateVoices(httpTts.voices)) {
-                    Unit
                 } else {
                     viewModel.save(httpTts) {
                         rememberInitialDraft()
@@ -214,16 +205,8 @@ class HttpTtsEditDialog() : BaseDialogFragment(R.layout.dialog_http_tts_edit, tr
             header = headersField.codeView.text?.toString(),
             jsLib = jsLibField.codeView.text?.toString()?.takeIf { it.isNotBlank() },
             enabledCookieJar = binding.cbIsEnableCookie.isChecked,
-            pauseDuration = binding.tvPauseDuration.text?.toString()?.toIntOrNull() ?: 0,
-            voices = binding.tvVoices.text?.toString()?.trim()?.takeIf { it.isNotBlank() }
+            pauseDuration = binding.tvPauseDuration.text?.toString()?.toIntOrNull() ?: 0
         )
-    }
-
-    private fun validateVoices(json: String?): Boolean {
-        val error = TtsVoice.validateList(json).exceptionOrNull()?.localizedMessage
-        binding.tvVoices.error = error
-        if (error != null) toastOnUi(error)
-        return error == null
     }
 
     private fun currentDraft(): HttpTtsDraft {
@@ -238,8 +221,7 @@ class HttpTtsEditDialog() : BaseDialogFragment(R.layout.dialog_http_tts_edit, tr
             header = headersField.codeView.text?.toString().orEmpty(),
             jsLib = jsLibField.codeView.text?.toString().orEmpty(),
             enabledCookieJar = binding.cbIsEnableCookie.isChecked,
-            pauseDuration = binding.tvPauseDuration.text?.toString().orEmpty(),
-            voices = binding.tvVoices.text?.toString().orEmpty()
+            pauseDuration = binding.tvPauseDuration.text?.toString().orEmpty()
         )
     }
 

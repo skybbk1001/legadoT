@@ -17,7 +17,6 @@ import io.legado.app.data.dao.BookSourceDao
 import io.legado.app.data.dao.BookHighlightDao
 import io.legado.app.data.dao.BookmarkDao
 import io.legado.app.data.dao.CacheDao
-import io.legado.app.data.dao.ChapterRoleScriptDao
 import io.legado.app.data.dao.CookieDao
 import io.legado.app.data.dao.DictRuleDao
 import io.legado.app.data.dao.ExploreContainerDao
@@ -26,8 +25,7 @@ import io.legado.app.data.dao.HttpTTSDao
 import io.legado.app.data.dao.KeyboardAssistsDao
 import io.legado.app.data.dao.ReadRecordDao
 import io.legado.app.data.dao.ReplaceRuleDao
-import io.legado.app.data.dao.RoleAliasDao
-import io.legado.app.data.dao.RoleCastDao
+
 import io.legado.app.data.dao.RssArticleDao
 import io.legado.app.data.dao.RssReadRecordDao
 import io.legado.app.data.dao.RssSourceDao
@@ -46,7 +44,6 @@ import io.legado.app.data.entities.BookSourcePart
 import io.legado.app.data.entities.BookHighlight
 import io.legado.app.data.entities.Bookmark
 import io.legado.app.data.entities.Cache
-import io.legado.app.data.entities.ChapterRoleScript
 import io.legado.app.data.entities.Cookie
 import io.legado.app.data.entities.DictRule
 import io.legado.app.data.entities.ExploreContainer
@@ -55,8 +52,7 @@ import io.legado.app.data.entities.HttpTTS
 import io.legado.app.data.entities.KeyboardAssist
 import io.legado.app.data.entities.ReadRecord
 import io.legado.app.data.entities.ReplaceRule
-import io.legado.app.data.entities.RoleAlias
-import io.legado.app.data.entities.RoleCast
+
 import io.legado.app.data.entities.RssArticle
 import io.legado.app.data.entities.RssReadRecord
 import io.legado.app.data.entities.RssSource
@@ -84,7 +80,7 @@ val appDb by lazy {
 }
 
 @Database(
-    version = 92,
+    version = 93,
     exportSchema = true,
     entities = [Book::class, BookGroup::class, BookSource::class, BookChapter::class,
         ReplaceRule::class, SearchBook::class, SearchKeyword::class, Cookie::class,
@@ -92,7 +88,7 @@ val appDb by lazy {
         RssStar::class, TxtTocRule::class, ReadRecord::class, HttpTTS::class, Cache::class,
         RuleSub::class, DictRule::class, KeyboardAssist::class, Server::class,
         AutoTaskRule::class, BookHighlight::class, HighlightRule::class,
-        ExploreContainer::class, RoleCast::class, ChapterRoleScript::class, RoleAlias::class],
+        ExploreContainer::class],
     views = [BookSourcePart::class],
     autoMigrations = [
         AutoMigration(from = 43, to = 44),
@@ -142,6 +138,7 @@ val appDb by lazy {
         AutoMigration(from = 89, to = 90),
         AutoMigration(from = 90, to = 91, spec = DatabaseMigrations.Migration_90_91::class),
         AutoMigration(from = 91, to = 92),
+        AutoMigration(from = 92, to = 93, spec = DatabaseMigrations.Migration_92_93::class),
     ]
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -171,9 +168,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract val bookHighlightDao: BookHighlightDao
     abstract val highlightRuleDao: HighlightRuleDao
     abstract val exploreContainerDao: ExploreContainerDao
-    abstract val roleCastDao: RoleCastDao
-    abstract val chapterRoleScriptDao: ChapterRoleScriptDao
-    abstract val roleAliasDao: RoleAliasDao
+
 
     companion object {
 
@@ -202,18 +197,6 @@ abstract class AppDatabase : RoomDatabase() {
             }
 
             override fun onOpen(db: SupportSQLiteDatabase) {
-                db.execSQL(
-                    "delete from roleCasts where not exists " +
-                            "(select 1 from books where books.bookUrl = roleCasts.bookUrl)"
-                )
-                db.execSQL(
-                    "delete from chapterRoleScripts where not exists " +
-                            "(select 1 from books where books.bookUrl = chapterRoleScripts.bookUrl)"
-                )
-                db.execSQL(
-                    "delete from roleAliases where not exists " +
-                            "(select 1 from books where books.bookUrl = roleAliases.bookUrl)"
-                )
                 @Language("sql")
                 val insertBookGroupAllSql = """
                     insert into book_groups(groupId, groupName, 'order', show) 

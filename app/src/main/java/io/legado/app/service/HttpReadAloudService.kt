@@ -25,9 +25,7 @@ import com.script.ScriptException
 import io.legado.app.R
 import io.legado.app.constant.AppLog
 import io.legado.app.constant.AppPattern
-import io.legado.app.data.appDb
 import io.legado.app.data.entities.HttpTTS
-import io.legado.app.data.entities.RoleCast
 import io.legado.app.exception.NoStackTraceException
 import io.legado.app.help.config.AppConfig
 import io.legado.app.help.coroutine.Coroutine
@@ -35,7 +33,6 @@ import io.legado.app.help.exoplayer.InputStreamDataSource
 import io.legado.app.model.ReadAloud
 import io.legado.app.model.ReadBook
 import io.legado.app.model.analyzeRule.AnalyzeUrl
-import io.legado.app.model.readaloud.RoleAnnotator
 import io.legado.app.ui.book.read.page.entities.TextChapter
 import io.legado.app.utils.FileUtils
 import io.legado.app.utils.MD5Utils
@@ -97,11 +94,8 @@ class HttpReadAloudService : BaseReadAloudService(),
     private var downloadErrorNo: Int = 0
     private var playErrorNo = 0
     private val downloadTaskActiveLock = Mutex()
-    /** 引擎 id 到引擎的进程内缓存, 避免每个片段查一次库 */
-    private val ttsCache = HashMap<Long, HttpTTS?>()
     @Volatile
     private var playbackSessionId: Long = 0L
-    private var rebuildAfterCurrentSegment = false
 
     override fun onCreate() {
         super.onCreate()
@@ -146,67 +140,27 @@ class HttpReadAloudService : BaseReadAloudService(),
         playIndexJob?.cancel()
     }
 
-    override fun onRoleCastChanged() {
-        if (exoPlayer.currentMediaItem == null) {
-            resetSpeechScript()
-            ttsCache.clear()
-            if (pause) pageChanged = true else play()
-        } else {
-            rebuildAfterCurrentSegment = true
-        }
-    }
-
-    /** @return false 表示已跨出本章, 后续播放交给换章路径 */
-    private fun updateNextPos(): Boolean {
-        val segs = currentScript().segmentsOf(nowSpeak)
-        if (nowSegment < segs.lastIndex) {
-            nowSegment++
-            return true
-        }
-        nowSegment = 0
+    private fun updateNextPos() {
         readAloudNumber += contentList[nowSpeak].length + 1 - paragraphStartPos
         paragraphStartPos = 0
         if (nowSpeak < contentList.lastIndex) {
             nowSpeak++
-            return true
+        } else {
+            nextChapter(auto = true)
         }
-        nextChapter(auto = true)
-        return false
-    }
-
-    /**
-     * 配音变更后重排: 先按旧脚本推进游标, 再作废缓存, 从新游标处重建队列。
-     * 顺序固定 —— 作废后 [currentScript] 退化为每段一个片段, 先推进才不会吞掉本段剩余片段。
-     * 已入队的音频按旧配音生成, 一并清掉; 暂停中只清队, 待 resume 时重建。
-     *
-     * @return true 表示本次回调已被重建接管, 调用方不再走常规推进
-     */
-    private fun applyPendingRebuild(): Boolean {
-        if (!rebuildAfterCurrentSegment) return false
-        rebuildAfterCurrentSegment = false
-        val inChapter = updateNextPos()
-        resetSpeechScript()
-        ttsCache.clear()
-        exoPlayer.stop()
-        exoPlayer.clearMediaItems()
-        if (inChapter) {
-            if (pause) pageChanged = true else play()
-        }
-        return true
     }
 
     private fun downloadAndPlayAudios() {
         startDownloadAndQueue(
-            onComplete = { preDownloadAudios() }
-        ) { sessionId, slice ->
-            val httpTts = ttsOf(slice.cast.ttsEngineId)
-            val fileName = md5SpeakFileName(slice.text, slice.cast)
-            val speakText = slice.text.replace(AppPattern.notReadAloudRegex, "")
+            onComplete = { httpTts -> preDownloadAudios(httpTts) }
+        ) { sessionId, httpTts, index, text ->
+            val fileName = md5SpeakFileName(text)
+            val speakText = text.replace(AppPattern.notReadAloudRegex, "")
             if (speakText.isEmpty()) {
-                AppLog.put("阅读段落内容为空，使用无声音频代替。\n朗读文本：${slice.text}")
+                AppLog.put("阅读段落内容为空，使用无声音频代替。\n朗读文本：$text")
                 createSilentSound(fileName)
             } else if (!hasSpeakFile(fileName)) {
-                val inputStream = getSpeakStream(httpTts, speakText, slice.cast.voice)
+                val inputStream = getSpeakStream(httpTts, speakText)
                 if (inputStream != null) {
                     createSpeakFile(fileName, inputStream)
                 } else {
@@ -214,79 +168,40 @@ class HttpReadAloudService : BaseReadAloudService(),
                 }
             }
             val file = getSpeakFileAsMd5(fileName)
-            enqueueMediaItem(
-                sessionId,
-                createQueueMediaItem(Uri.fromFile(file), slice, sessionId)
-            )
+            val mediaItem = createQueueMediaItem(Uri.fromFile(file), index, sessionId)
+            enqueueMediaItem(sessionId, mediaItem)
             val pauseMs = httpTts.pauseDuration
-            if (pauseMs > 0 && !slice.isLast) {
+            if (pauseMs > 0 && index < contentList.lastIndex) {
                 val pauseName = "pause_$pauseMs"
                 if (!hasSpeakFile(pauseName)) {
                     createPauseFile(pauseName, pauseMs)
                 }
                 val pauseFile = getSpeakFileAsMd5(pauseName)
-                enqueueMediaItem(sessionId, createPauseMediaItem(Uri.fromFile(pauseFile), sessionId))
+                enqueueMediaItem(sessionId, createQueueMediaItem(Uri.fromFile(pauseFile), -1, sessionId))
             }
         }
     }
 
-    /** 下一章预取的输入: 章节与其整章朗读段落表 */
-    private data class NextChapterPrefetch(
-        val chapter: TextChapter,
-        val paragraphs: List<String>
-    )
-
-    /**
-     * 两条预取路径共用的段落表取法, 与起播时 [contentList] 的赋值逐字相同:
-     * 标注的内容 md5 与音频缓存键都按这份段落表算, 差一个字符即全部落空。
-     * 排版未完成时 [TextChapter.pages] 仍在增长, 页表不全会截断段落表, 此时不预取。
-     */
-    private fun nextChapterPrefetch(): NextChapterPrefetch? {
-        val nextChapter = ReadBook.nextTextChapter ?: return null
-        if (!nextChapter.isCompleted) return null
-        val paragraphs = nextChapter.getNeedReadAloud(0, readAloudByPage, 0)
-            .split("\n")
+    private suspend fun preDownloadAudios(httpTts: HttpTTS) {
+        val textChapter = ReadBook.nextTextChapter ?: return
+        val contentList = textChapter.getNeedReadAloud(0, readAloudByPage, 0, 1)
+            .splitToSequence("\n")
             .filter { it.isNotEmpty() }
-        if (paragraphs.isEmpty()) return null
-        return NextChapterPrefetch(nextChapter, paragraphs)
-    }
-
-    /**
-     * 流式不落音频文件, 预取只做标注: 下一章起播时 [RoleAnnotator] 命中缓存, 起播前不再等 LLM 往返。
-     */
-    private suspend fun preAnnotateNextChapter() {
-        val book = ReadBook.book ?: return
-        val (nextChapter, paragraphs) = nextChapterPrefetch() ?: return
-        RoleAnnotator.prefetch(book.bookUrl, nextChapter.chapter.index, paragraphs)
-    }
-
-    /**
-     * 本章音频已全部入队后才走到这里, 下一章的标注与音频都在同一个下载协程上预取。
-     * 换章时 [play] 先取消下载协程, 未完成的预取随之作废。
-     */
-    private suspend fun preDownloadAudios() {
-        val (nextChapter, paragraphs) = nextChapterPrefetch() ?: return
-        // 先标注整章, 音频按下一章的真 casting 预下载, 缓存键与起播时的播放路径一致
-        val fallback = currentScript().fallbackCast()
-        val script = buildScriptFor(nextChapter.chapter.index, paragraphs, fallback)
-        for (para in paragraphs.indices.take(10)) {
-            for (seg in script.segmentsOf(para)) {
-                currentCoroutineContext().ensureActive()
-                val cast = script.castOf(seg)
-                val content = script.textOf(seg)
-                val fileName = md5SpeakFileName(content, cast, nextChapter)
-                val speakText = content.replace(AppPattern.notReadAloudRegex, "")
-                if (speakText.isEmpty()) {
-                    createSilentSound(fileName)
-                } else if (!hasSpeakFile(fileName)) {
-                    runCatching {
-                        val inputStream =
-                            getSpeakStream(ttsOf(cast.ttsEngineId), speakText, cast.voice)
-                        if (inputStream != null) {
-                            createSpeakFile(fileName, inputStream)
-                        } else {
-                            createSilentSound(fileName)
-                        }
+            .take(10)
+            .toList()
+        contentList.forEach { content ->
+            currentCoroutineContext().ensureActive()
+            val fileName = md5SpeakFileName(content, textChapter)
+            val speakText = content.replace(AppPattern.notReadAloudRegex, "")
+            if (speakText.isEmpty()) {
+                createSilentSound(fileName)
+            } else if (!hasSpeakFile(fileName)) {
+                runCatching {
+                    val inputStream = getSpeakStream(httpTts, speakText)
+                    if (inputStream != null) {
+                        createSpeakFile(fileName, inputStream)
+                    } else {
+                        createSilentSound(fileName)
                     }
                 }
             }
@@ -294,56 +209,38 @@ class HttpReadAloudService : BaseReadAloudService(),
     }
 
     private fun downloadAndPlayAudiosStream() {
-        startDownloadAndQueue(
-            onComplete = { preAnnotateNextChapter() }
-        ) { sessionId, slice ->
-            val httpTts = ttsOf(slice.cast.ttsEngineId)
-            val speakText = slice.text.replace(AppPattern.notReadAloudRegex, "")
+        startDownloadAndQueue { sessionId, httpTts, index, text ->
+            val speakText = text.replace(AppPattern.notReadAloudRegex, "")
             if (speakText.isEmpty()) {
                 AppLog.put("阅读段落内容为空，使用无声音频代替。\n朗读文本：$speakText")
             }
-            val fileName = md5SpeakFileName(slice.text, slice.cast)
-            val dataSourceFactory = createDataSourceFactory(httpTts, speakText, slice.cast.voice)
-            val mediaSource = DefaultMediaSourceFactory(this)
-                .setDataSourceFactory(dataSourceFactory)
-                .setLoadErrorHandlingPolicy(loadErrorHandlingPolicy)
-                .createMediaSource(createQueueMediaItem(fileName.toUri(), slice, sessionId))
+            val fileName = md5SpeakFileName(text)
+            val dataSourceFactory = createDataSourceFactory(httpTts, speakText)
+            val mediaSource = createMediaSource(dataSourceFactory, fileName, index, sessionId)
             enqueueMediaSource(sessionId, mediaSource)
             val pauseMs = httpTts.pauseDuration
-            if (pauseMs > 0 && !slice.isLast) {
+            if (pauseMs > 0 && index < contentList.lastIndex) {
                 val pauseDataSourceFactory = DataSource.Factory {
                     InputStreamDataSource {
                         java.io.ByteArrayInputStream(generateSilentWavBytes(pauseMs))
                     }
                 }
+                val pauseItem = MediaItem.Builder()
+                    .setUri("pause:$pauseMs".toUri())
+                    .setMediaId("$sessionId:-1")
+                    .build()
                 val pauseMediaSource = DefaultMediaSourceFactory(this)
                     .setDataSourceFactory(pauseDataSourceFactory)
                     .setLoadErrorHandlingPolicy(loadErrorHandlingPolicy)
-                    .createMediaSource(createPauseMediaItem("pause:$pauseMs".toUri(), sessionId))
+                    .createMediaSource(pauseItem)
                 enqueueMediaSource(sessionId, pauseMediaSource)
             }
         }
     }
 
-    /**
-     * 一个待入队片段的全部载荷。
-     *
-     * @param para 片段所在段落在 [contentList] 中的下标
-     * @param segIndex 片段在该段落片段表中的下标
-     * @param isLast 本章最后一个片段, 其后不再接停顿项
-     * @param text 已按起播偏移截断的待朗读文本
-     */
-    private data class SpeechSlice(
-        val cast: RoleCast,
-        val para: Int,
-        val segIndex: Int,
-        val isLast: Boolean,
-        val text: String
-    )
-
     private fun startDownloadAndQueue(
-        onComplete: suspend () -> Unit = {},
-        enqueueBlock: suspend (sessionId: Long, slice: SpeechSlice) -> Unit
+        onComplete: suspend (HttpTTS) -> Unit = {},
+        enqueueBlock: suspend (sessionId: Long, httpTts: HttpTTS, index: Int, text: String) -> Unit
     ) {
         downloadTask?.cancel()
         exoPlayer.clearMediaItems()
@@ -352,55 +249,41 @@ class HttpReadAloudService : BaseReadAloudService(),
             downloadTaskActiveLock.withLock {
                 ensureActive()
                 ensureSessionActive(sessionId)
-                prepareSpeechScript()
-                val script = currentScript()
-                val startPara = nowSpeak.coerceAtLeast(0)
-                for (para in startPara..contentList.lastIndex) {
-                    val segs = script.segmentsOf(para)
-                    val startSeg = if (para == startPara) {
-                        nowSegment.coerceIn(0, maxOf(segs.lastIndex, 0))
-                    } else {
-                        0
-                    }
-                    for (segIndex in startSeg..segs.lastIndex) {
-                        ensureActive()
-                        ensureSessionActive(sessionId)
-                        val seg = segs[segIndex]
-                        val offset = if (para == startPara && segIndex == startSeg) {
-                            paragraphStartPos
-                        } else {
-                            0
-                        }
-                        val slice = SpeechSlice(
-                            cast = script.castOf(seg),
-                            para = para,
-                            segIndex = segIndex,
-                            isLast = para == contentList.lastIndex && segIndex == segs.lastIndex,
-                            text = script.textOf(seg, offset)
-                        )
-                        try {
-                            enqueueBlock(sessionId, slice)
-                        } catch (e: CancellationException) {
-                            throw e
-                        } catch (e: Exception) {
-                            AppLog.put("朗读下载处理失败\n${e.localizedMessage}", e)
-                            pauseReadAloud()
-                            return@execute
-                        }
+                val httpTts = ReadAloud.httpTTS ?: throw NoStackTraceException("tts is null")
+                val startIndex = nowSpeak.coerceAtLeast(0)
+                for (index in startIndex..contentList.lastIndex) {
+                    ensureActive()
+                    ensureSessionActive(sessionId)
+                    val text = getReadTextForPlay(index, contentList[index])
+                    try {
+                        enqueueBlock(sessionId, httpTts, index, text)
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        AppLog.put("朗读下载处理失败\n${e.localizedMessage}", e)
+                        pauseReadAloud()
+                        return@execute
                     }
                 }
                 ensureSessionActive(sessionId)
-                onComplete()
+                onComplete(httpTts)
             }
         }.onError {
             AppLog.put("朗读下载出错\n${it.localizedMessage}", it, true)
         }
     }
 
+    private fun getReadTextForPlay(index: Int, content: String): String {
+        return if (paragraphStartPos > 0 && index == nowSpeak) {
+            content.substring(paragraphStartPos)
+        } else {
+            content
+        }
+    }
+
     private fun createDataSourceFactory(
         httpTts: HttpTTS,
-        speakText: String,
-        voice: String?
+        speakText: String
     ): CacheDataSource.Factory {
         val upstreamFactory = DataSource.Factory {
             InputStreamDataSource {
@@ -409,7 +292,7 @@ class HttpReadAloudService : BaseReadAloudService(),
                 } else {
                     kotlin.runCatching {
                         runBlocking(lifecycleScope.coroutineContext[Job]!!) {
-                            getSpeakStream(httpTts, speakText, voice)
+                            getSpeakStream(httpTts, speakText)
                         }
                     }.onFailure {
                         when (it) {
@@ -429,10 +312,21 @@ class HttpReadAloudService : BaseReadAloudService(),
         return factory
     }
 
+    private fun createMediaSource(
+        factory: DataSource.Factory,
+        fileName: String,
+        index: Int,
+        sessionId: Long
+    ): MediaSource {
+        return DefaultMediaSourceFactory(this)
+            .setDataSourceFactory(factory)
+            .setLoadErrorHandlingPolicy(loadErrorHandlingPolicy)
+            .createMediaSource(createQueueMediaItem(fileName.toUri(), index, sessionId))
+    }
+
     private suspend fun getSpeakStream(
         httpTts: HttpTTS,
-        speakText: String,
-        voice: String?
+        speakText: String
     ): InputStream? {
         while (true) {
             try {
@@ -440,7 +334,6 @@ class HttpReadAloudService : BaseReadAloudService(),
                     httpTts.url,
                     speakText = speakText,
                     speakSpeed = speechRate,
-                    speakVoice = voice,
                     source = httpTts,
                     readTimeout = 300 * 1000L,
                     coroutineContext = currentCoroutineContext()
@@ -507,32 +400,14 @@ class HttpReadAloudService : BaseReadAloudService(),
         return null
     }
 
-    private fun md5SpeakFileName(
-        content: String,
-        cast: RoleCast,
-        textChapter: TextChapter? = this.textChapter
-    ): String {
-        val tts = ttsOf(cast.ttsEngineId)
-        val sourceVariable = tts.getVariable().orEmpty()
-        val loginHeader = tts.getLoginHeader().orEmpty()
+    private fun md5SpeakFileName(content: String, textChapter: TextChapter? = this.textChapter): String {
+        val tts = ReadAloud.httpTTS
+        val sourceVariable = tts?.getVariable().orEmpty()
+        val loginHeader = tts?.getLoginHeader().orEmpty()
         return MD5Utils.md5Encode16(textChapter?.title ?: "") + "_" +
                 MD5Utils.md5Encode16(
-                    "${tts.url}-|-$speechRate-|-${cast.ttsEngineId}-|-${cast.voice}" +
-                            "-|-$sourceVariable-|-$loginHeader-|-$content"
+                    "${tts?.url}-|-$speechRate-|-$sourceVariable-|-$loginHeader-|-$content"
                 )
-    }
-
-    /**
-     * engineId 为 0(未指定)或库中查无此条时用当前朗读引擎。
-     * 同步查库并写 [ttsCache], 全部调用路径都在 [downloadTaskActiveLock] 内的 IO 上下文上, 串行独占。
-     */
-    private fun ttsOf(engineId: Long): HttpTTS {
-        val cached = when {
-            engineId <= 0L -> null
-            ttsCache.containsKey(engineId) -> ttsCache[engineId]
-            else -> appDb.httpTTSDao.get(engineId).also { ttsCache[engineId] = it }
-        }
-        return cached ?: ReadAloud.httpTTS ?: throw NoStackTraceException("tts is null")
     }
 
     private fun createSilentSound(fileName: String) {
@@ -630,25 +505,24 @@ class HttpReadAloudService : BaseReadAloudService(),
     private fun upPlayPos() {
         playIndexJob?.cancel()
         val textChapter = textChapter ?: return
-        val seg = currentScript().segmentsOf(nowSpeak).getOrNull(nowSegment) ?: return
-        // readAloudNumber 已含 paragraphStartPos, 片段起点扣掉落在它之前的那段偏移, 读数才落在真实起点上。
-        // 段首起播(paragraphStartPos 为 0)取值为 seg.s; 纯旁白脚本 seg.s 恒为 0, 钳位后取值恒为 0。
-        val segStart = seg.s - paragraphStartPos.coerceIn(0, seg.s)
-        val speakTextLength = seg.e - seg.s
         playIndexJob = lifecycleScope.launch {
-            upTtsProgress(readAloudNumber + segStart + 1)
-            if (exoPlayer.duration <= 0 || speakTextLength <= 0) {
+            upTtsProgress(readAloudNumber + 1)
+            if (exoPlayer.duration <= 0) {
+                return@launch
+            }
+            val speakTextLength = contentList[nowSpeak].length
+            if (speakTextLength <= 0) {
                 return@launch
             }
             val sleep = exoPlayer.duration / speakTextLength
             val start = speakTextLength * exoPlayer.currentPosition / exoPlayer.duration
-            for (i in start..speakTextLength.toLong()) {
+            for (i in start..contentList[nowSpeak].length) {
                 if (pageIndex + 1 < textChapter.pageSize
-                    && readAloudNumber + segStart + i > textChapter.getReadLength(pageIndex + 1)
+                    && readAloudNumber + i > textChapter.getReadLength(pageIndex + 1)
                 ) {
                     pageIndex++
                     ReadBook.moveToNextPage(syncReadAloudFollow = true)
-                    upTtsProgress(readAloudNumber + segStart + i.toInt())
+                    upTtsProgress(readAloudNumber + i.toInt())
                 }
                 delay(sleep)
             }
@@ -699,7 +573,6 @@ class HttpReadAloudService : BaseReadAloudService(),
                     return
                 }
                 playErrorNo = 0
-                if (applyPendingRebuild()) return
                 updateNextPos()
                 exoPlayer.stop()
                 exoPlayer.clearMediaItems()
@@ -726,9 +599,6 @@ class HttpReadAloudService : BaseReadAloudService(),
             playErrorNo = 0
         }
         trimPlayedMediaItems()
-        if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO && applyPendingRebuild()) {
-            return
-        }
         if (mediaItem?.mediaId?.endsWith(":-1") == true) {
             return
         }
@@ -792,18 +662,10 @@ class HttpReadAloudService : BaseReadAloudService(),
         return servicePendingIntent<HttpReadAloudService>(actionStr)
     }
 
-    private fun createQueueMediaItem(uri: Uri, slice: SpeechSlice, sessionId: Long): MediaItem {
+    private fun createQueueMediaItem(uri: Uri, index: Int, sessionId: Long): MediaItem {
         return MediaItem.Builder()
             .setUri(uri)
-            .setMediaId("$sessionId:${slice.para}:${slice.segIndex}")
-            .build()
-    }
-
-    /** 停顿项保持两段式 id, 会话判定与 :-1 判定均沿用 */
-    private fun createPauseMediaItem(uri: Uri, sessionId: Long): MediaItem {
-        return MediaItem.Builder()
-            .setUri(uri)
-            .setMediaId("$sessionId:-1")
+            .setMediaId("$sessionId:$index")
             .build()
     }
 

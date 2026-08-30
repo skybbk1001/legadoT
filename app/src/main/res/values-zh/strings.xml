@@ -282,7 +282,6 @@ Cron 使用 5 个字段：**分 时 日 月 周**
     <string name="read_aloud">朗读</string>
     <string name="read_aloud_t">正在朗读</string>
     <string name="read_aloud_s">点击打开阅读界面</string>
-    <string name="role_analyzing">角色分析中</string>
     <string name="back_to_speaking_position">回到朗读位置</string>
     <string name="read_aloud_from_here">从此处朗读</string>
     <string name="audio_play">播放</string>
@@ -463,7 +462,6 @@ Cron 使用 5 个字段：**分 时 日 月 周**
     <string name="progress_show">%1$s      进度 %2$d/%3$d</string>
     <string name="tts_fix">请安装并选择中文 TTS！</string>
     <string name="tts_init_failed">TTS 初始化失败！</string>
-    <string name="tts_voices">音色清单 JSON（可留空）</string>
     <string name="jf_convert">简繁转换</string>
     <string name="jf_convert_o">关闭</string>
     <string name="jf_convert_f">简转繁</string>
@@ -1540,29 +1538,4 @@ Cron 使用 5 个字段：**分 时 日 月 周**
     <string name="bottom_bar_skin_import">导入图集</string>
     <string name="bottom_bar_skin_invalid">无效的图集文件</string>
     <string name="bottom_bar_skin_delete_confirm">删除该图集?</string>
-    <string name="multi_role_read_aloud">多角色朗读</string>
-    <string name="multi_role_read_aloud_summary">按角色切换音色，需配置 AI 服务与带音色清单的在线引擎</string>
-    <string name="ai_service">AI 服务</string>
-    <string name="ai_base_url">接口地址</string>
-    <string name="ai_api_key">API Key</string>
-    <string name="ai_model">模型</string>
-    <string name="ai_role_prompt">补充提示词（内置格式约束始终生效）</string>
-    <string name="ai_test_connection">测试连接</string>
-    <string name="ai_test_ok">连接正常</string>
-    <string name="role_cast">角色音色</string>
-    <string name="role_cast_empty">尚未识别到角色，朗读一章后再来</string>
-    <string name="role_cast_reset">全部重置为自动</string>
-    <string name="role_cast_auto">自动</string>
-    <string name="role_cast_default_voice">默认音色</string>
-    <string name="role_cast_unavailable">不可用 · %1$s</string>
-    <string name="role_annotation_fallback">角色标注失败，本章使用旁白</string>
-    <string name="role_reanalyze_chapter">重新分析本章</string>
-    <string name="role_reanalyze_scheduled">将在下一片段重新分析</string>
-    <string name="role_merge">合并角色</string>
-    <string name="role_merge_failed">合并角色失败</string>
-    <string name="role_cast_engine_missing">朗读引擎不存在</string>
-    <string name="role_preview_failed">音色试听失败</string>
-    <string name="role_preview_text">你好，这是音色试听。</string>
-    <string name="ai_role_consent_message">角色标注会将当前章节正文及默认开启的下一章预取内容发送到你配置的外部 AI 服务。服务地址、费用和隐私由你自行确认。是否允许发送？</string>
-    <string name="role_cast_seen">第 %1$d 章出场</string>
 </resources>

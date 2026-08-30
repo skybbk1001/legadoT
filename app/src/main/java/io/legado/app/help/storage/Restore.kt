@@ -23,8 +23,6 @@ import io.legado.app.data.entities.HttpTTS
 import io.legado.app.data.entities.KeyboardAssist
 import io.legado.app.data.entities.ReadRecord
 import io.legado.app.data.entities.ReplaceRule
-import io.legado.app.data.entities.RoleAlias
-import io.legado.app.data.entities.RoleCast
 import io.legado.app.data.entities.RssSource
 import io.legado.app.data.entities.RssStar
 import io.legado.app.data.entities.RuleSub
@@ -282,20 +280,6 @@ object Restore {
                 appDb.exploreContainerDao.insert(*containers.toTypedArray())
             }.onFailure {
                 AppLog.put("恢复发现容器出错\n${it.localizedMessage}", it)
-            }
-        }
-        fileToListT<RoleCast>(path, "roleCast.json")?.let { casts ->
-            kotlin.runCatching {
-                appDb.roleCastDao.insert(*casts.toTypedArray())
-            }.onFailure {
-                AppLog.put("恢复角色音色出错\n${it.localizedMessage}", it)
-            }
-        }
-        fileToListT<RoleAlias>(path, "roleAlias.json")?.let { aliases ->
-            kotlin.runCatching {
-                appDb.roleAliasDao.insert(*aliases.toTypedArray())
-            }.onFailure {
-                AppLog.put("恢复角色别名出错\n${it.localizedMessage}", it)
             }
         }
         fileToListT<ReadRecord>(path, "readRecord.json")?.let {

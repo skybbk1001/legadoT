@@ -15,7 +15,7 @@ Legado / 开源阅读
 Legado is a free and open source novel reader for Android.
 </div>
 
-> 本仓库为 **阅读T**（Legado 增强分支）：在 Legado 基础上扩展定时任务、JS 书源、内置 MCP 服务、HTTP 在线角色化朗读等能力，详见下方 [阅读T增强特性](#阅读t增强特性)。
+> 本仓库为 **阅读T**（Legado 增强分支）：在 Legado 基础上扩展定时任务、JS 书源、内置 MCP 服务等能力，详见下方 [阅读T增强特性](#阅读t增强特性)。
 
 [![](https://img.shields.io/badge/-Contents:-696969.svg)](#contents) [![](https://img.shields.io/badge/-Function-F5F5F5.svg)](#Function-主要功能-) [![](https://img.shields.io/badge/-Community-F5F5F5.svg)](#Community-交流社区-) [![](https://img.shields.io/badge/-API-F5F5F5.svg)](#API-) [![](https://img.shields.io/badge/-Other-F5F5F5.svg)](#Other-其他-) [![](https://img.shields.io/badge/-Grateful-F5F5F5.svg)](#Grateful-感谢-) [![](https://img.shields.io/badge/-Interface-F5F5F5.svg)](#Interface-界面-)
 
@@ -79,7 +79,6 @@ Legado is a free and open source novel reader for Android.
 
 听书增强
 
-- HTTP 在线角色化朗读：经用户授权后，由用户配置的外部 AI 服务标注旁白和角色，并支持按角色指定引擎与音色；标注或配音解析失败时回落普通朗读
 - 媒体会话支持上下集切换，按书记忆倍速与播放模式，听书时长计入阅读记录
 - 翻页不打断朗读，朗读悬浮胶囊快捷回位/从此处朗读
 - 片头/片尾自动跳过，支持本书与全局配置

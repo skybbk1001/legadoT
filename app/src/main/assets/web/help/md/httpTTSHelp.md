@@ -7,7 +7,6 @@
 ```
 speakText //朗读文本
 speakSpeed //朗读速度,5-50
-speakVoice //音色ID(voices配置多个音色时必用)
 ```
 
 ## 例
@@ -29,4 +28,3 @@ http://tts.baidu.com/text2audio,{
 * jsLib: 共享给本引擎所有JS(含登录检测js)调用的公共JS库文本;函数内需通过this取java/source等对象
 * 启用CookieJar: 请求自动保存/携带Cookie,登录或session接口需开启
 * 段落间隔: 段落间插入静音毫秒数
-* 音色: 音色清单JSON数组,每项{id,name,gender,age};url规则需用speakVoice消费

@@ -67,9 +67,6 @@
 -keep class io.legado.app.help.HighlightStyle$** { *; }
 # 发现页缓存壳:help.source 下的 GSON 模型,同 HighlightStyle 需单独 keep 防 R8 改名
 -keep class io.legado.app.help.source.CachedExploreBooks { *; }
-# 多角色朗读:model.readaloud 下的 GSON 模型(LLM 响应 DTO、Segment/RoleProfile/RoleScript 标注缓存)
-# 字段名即 JSON 键且无 @SerializedName,gson.pro 覆盖不到,整包 keep 防 R8 改名后反序列化全落默认值
--keep class io.legado.app.model.readaloud.** { *; }
 # showBrowser WebView JS 接口
 -keepclassmembers class **.ui.widget.dialog.BottomWebViewDialog$JSInterface {
     public *;

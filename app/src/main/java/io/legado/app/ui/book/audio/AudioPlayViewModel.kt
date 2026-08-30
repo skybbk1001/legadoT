@@ -114,9 +114,6 @@ class AudioPlayViewModel(application: Application) : BaseViewModel(application) 
         execute {
             AudioPlay.book?.let {
                 appDb.bookDao.delete(it)
-                appDb.roleCastDao.deleteByBook(it.bookUrl)
-                appDb.chapterRoleScriptDao.deleteByBook(it.bookUrl)
-                appDb.roleAliasDao.deleteByBook(it.bookUrl)
             }
         }.onSuccess {
             success?.invoke()

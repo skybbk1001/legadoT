@@ -94,8 +94,6 @@ class ReadAloudDialog : BaseDialogFragment(R.layout.dialog_read_aloud),
             ivEngine.setColorFilter(textColor)
             tvEngineName.setTextColor(textColor)
             ivEngineArrow.setColorFilter(textColor)
-            ivRoleCast.setColorFilter(textColor)
-            tvRoleCast.setTextColor(textColor)
         }
         initData()
         initEvent()
@@ -120,9 +118,6 @@ class ReadAloudDialog : BaseDialogFragment(R.layout.dialog_read_aloud),
         }
         llEngine.setOnClickListener {
             SpeakEngineDialog().show(childFragmentManager, "speakEngineDialog")
-        }
-        llRoleCast.setOnClickListener {
-            RoleCastDialog().show(childFragmentManager, "roleCastDialog")
         }
         tvPre.setOnClickListener { ReadAloud.prevChapter(requireContext()) }
         tvNext.setOnClickListener { ReadAloud.nextChapter(requireContext()) }
@@ -255,11 +250,6 @@ class ReadAloudDialog : BaseDialogFragment(R.layout.dialog_read_aloud),
 
     private fun upEngineName() {
         binding.tvEngineName.text = ReadAloud.getEngineName(requireContext())
-        binding.llRoleCast.visibility = if (StringUtils.isNumeric(ReadAloud.ttsEngine ?: "")) {
-            View.VISIBLE
-        } else {
-            View.GONE
-        }
     }
 
     override fun upSpeakEngineSummary() {

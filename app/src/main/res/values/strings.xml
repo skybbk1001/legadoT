@@ -284,7 +284,6 @@ Placeholders:
     <string name="read_aloud">Speech</string>
     <string name="read_aloud_t">Speaking</string>
     <string name="read_aloud_s">Click to open the Reading</string>
-    <string name="role_analyzing">Analysing roles</string>
     <string name="back_to_speaking_position">Back to speaking position</string>
     <string name="read_aloud_from_here">Read from here</string>
     <string name="audio_play">Play</string>
@@ -507,7 +506,6 @@ Placeholders:
     <string name="progress_show">%1$s      Progress %2$d/%3$d</string>
     <string name="tts_fix">Please install and select Chinese TTS!</string>
     <string name="tts_init_failed">TTS initialization failed!</string>
-    <string name="tts_voices">Voice list JSON (optional)</string>
     <string name="jf_convert">Simplified conversion</string>
     <string name="jf_convert_o">Off</string>
     <string name="jf_convert_f">Simplified to traditional</string>
@@ -1625,29 +1623,4 @@ Placeholders:
     <string name="bottom_bar_skin_import">Import Skin</string>
     <string name="bottom_bar_skin_invalid">Invalid skin file</string>
     <string name="bottom_bar_skin_delete_confirm">Delete this skin?</string>
-    <string name="multi_role_read_aloud">Multi-role Read Aloud</string>
-    <string name="multi_role_read_aloud_summary">Switch voices by role; requires AI service and an online engine with a voice list</string>
-    <string name="ai_service">AI Service</string>
-    <string name="ai_base_url">Base URL</string>
-    <string name="ai_api_key">API Key</string>
-    <string name="ai_model">Model</string>
-    <string name="ai_role_prompt">Additional prompt (built-in format rules always apply)</string>
-    <string name="ai_test_connection">Test Connection</string>
-    <string name="ai_test_ok">Connection OK</string>
-    <string name="role_cast">Role Voices</string>
-    <string name="role_cast_empty">No roles identified yet, try reading a chapter first</string>
-    <string name="role_cast_reset">Reset all to auto</string>
-    <string name="role_cast_auto">Auto</string>
-    <string name="role_cast_default_voice">Default voice</string>
-    <string name="role_cast_unavailable">Unavailable · %1$s</string>
-    <string name="role_annotation_fallback">Role annotation failed; using the narrator for this chapter</string>
-    <string name="role_reanalyze_chapter">Reanalyze this chapter</string>
-    <string name="role_reanalyze_scheduled">The chapter will be reanalyzed after the current segment</string>
-    <string name="role_merge">Merge role</string>
-    <string name="role_merge_failed">Failed to merge role</string>
-    <string name="role_cast_engine_missing">Read-aloud engine not found</string>
-    <string name="role_preview_failed">Voice preview failed</string>
-    <string name="role_preview_text">Hello, this is a voice preview.</string>
-    <string name="ai_role_consent_message">Role annotation sends the current chapter and the next chapter used for default prefetch to your configured external AI service. You are responsible for its privacy and cost. Allow sending?</string>
-    <string name="role_cast_seen">Chapter %1$d</string>
 </resources>

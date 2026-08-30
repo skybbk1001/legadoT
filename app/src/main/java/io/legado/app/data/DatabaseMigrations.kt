@@ -1,6 +1,7 @@
 package io.legado.app.data
 
 import androidx.room.DeleteColumn
+import androidx.room.DeleteTable
 import androidx.room.migration.AutoMigrationSpec
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
@@ -411,5 +412,20 @@ object DatabaseMigrations {
         columnName = "enabledReview"
     )
     class Migration_64_65 : AutoMigrationSpec
+
+    /**
+     * 角色化朗读功能下线: 删除角色表/标注缓存表/别名表与 httpTTS.voices 音色清单列
+     */
+    @Suppress("ClassName")
+    @DeleteTable.Entries(
+        DeleteTable("roleCasts"),
+        DeleteTable("chapterRoleScripts"),
+        DeleteTable("roleAliases")
+    )
+    @DeleteColumn(
+        tableName = "httpTTS",
+        columnName = "voices"
+    )
+    class Migration_92_93 : AutoMigrationSpec
 
 }

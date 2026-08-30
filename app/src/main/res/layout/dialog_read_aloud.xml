@@ -59,43 +59,6 @@
     </LinearLayout>
 
     <LinearLayout
-        android:id="@+id/ll_role_cast"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginBottom="@dimen/space_xs"
-        android:background="@drawable/bg_read_menu_action"
-        android:clickable="true"
-        android:focusable="true"
-        android:gravity="center_vertical"
-        android:orientation="horizontal"
-        android:paddingHorizontal="@dimen/space_s"
-        android:paddingVertical="@dimen/space_s">
-
-        <androidx.appcompat.widget.AppCompatImageView
-            android:id="@+id/iv_role_cast"
-            android:layout_width="20dp"
-            android:layout_height="20dp"
-            android:layout_marginEnd="@dimen/space_s"
-            android:contentDescription="@string/role_cast"
-            android:src="@drawable/ic_volume_up"
-            app:skin_tint="onSurface"
-            app:tint="@color/primaryText" />
-
-        <TextView
-            android:id="@+id/tv_role_cast"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:ellipsize="end"
-            android:singleLine="true"
-            android:text="@string/role_cast"
-            app:skin_textColor="onSurface"
-            android:textColor="@color/primaryText"
-            android:textSize="@dimen/text_body" />
-
-    </LinearLayout>
-
-    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:gravity="center"

@@ -59,17 +59,6 @@
             android:summary="@string/sys_tts_config_summary"
             android:key="sysTtsConfig" />
 
-        <io.legado.app.lib.prefs.SwitchPreference
-            android:key="multiRoleReadAloud"
-            android:title="@string/multi_role_read_aloud"
-            android:summary="@string/multi_role_read_aloud_summary"
-            app:iconSpaceReserved="false" />
-
-        <io.legado.app.lib.prefs.Preference
-            android:key="aiService"
-            android:title="@string/ai_service"
-            app:iconSpaceReserved="false" />
-
     </io.legado.app.lib.prefs.PreferenceCategory>
 
 </androidx.preference.PreferenceScreen>

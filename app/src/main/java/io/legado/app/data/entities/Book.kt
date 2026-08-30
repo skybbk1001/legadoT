@@ -429,9 +429,6 @@ data class Book(
         if (ReadBook.book?.bookUrl == bookUrl) {
             ReadBook.book = null
         }
-        appDb.roleCastDao.deleteByBook(bookUrl)
-        appDb.chapterRoleScriptDao.deleteByBook(bookUrl)
-        appDb.roleAliasDao.deleteByBook(bookUrl)
         appDb.bookDao.delete(this)
     }
 
