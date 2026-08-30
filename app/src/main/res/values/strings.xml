@@ -1575,7 +1575,6 @@ Placeholders:
     <string name="review_icon_color_reset">Icon color reset to follow theme</string>
     <string name="review_icon_default">Default icon</string>
     <string name="review_icon_add">Add icon</string>
-    <string name="review_icon_empty">No saved icons yet.\nTap the add button to save one.</string>
     <string name="review_icon_default_name">Icon %1$d</string>
     <!-- 发现容器 -->
     <string name="explore_container_manage">发现容器管理</string>

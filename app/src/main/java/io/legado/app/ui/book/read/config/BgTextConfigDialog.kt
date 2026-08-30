@@ -509,7 +509,6 @@ class BgTextConfigDialog : BaseDialogFragment(R.layout.dialog_read_bg_text) {
                 ivSelected.isVisible = current.isBlank()
                 ivSelected.setColorFilter(accentColor)
             }
-            managerBinding.tvEmpty.isVisible = iconAdapter.isEmpty()
         }
 
         fun refreshIconItems() {
