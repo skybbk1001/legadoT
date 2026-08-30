@@ -194,21 +194,28 @@ jobs:
       VERSION: ${{ needs.prepare.outputs.version }}
     steps:
       - uses: actions/checkout@v4
-      - id: commit_msg
-        run: |
-          msg="${{ github.event.head_commit.message }}"
-          if [ -z "$msg" ]; then
-            msg=$(git log -1 --pretty=%B)
-          fi
-          msg=$(echo "$msg" | tr '\n' ' ' | sed 's/[[:space:]]\+/ /g' | sed 's/[[:space:]]*$//')
-          echo "msg=$msg" >> $GITHUB_OUTPUT
+        with:
+          # 汇总自上次 beta 以来的全部提交,须全量历史与 tag
+          fetch-depth: 0
       - name: Build Release Notes
         run: |
-          cat > $GITHUB_WORKSPACE/release.md <<'EOF'
-          ## 更新日志
-          ${{ steps.commit_msg.outputs.msg }}
-
-          EOF
+          # 上一次 beta 发布点:此刻 tag 仍指向旧提交(尚未被后续 update-tag 移动)
+          prev="$(git rev-parse 'beta^{commit}' 2>/dev/null || echo '')"
+          head="$(git rev-parse HEAD)"
+          {
+            echo "## 更新日志"
+            echo
+            if [ -n "$prev" ] && [ "$prev" != "$head" ] && git merge-base --is-ancestor "$prev" "$head"; then
+              echo "自上一测试版以来的全部更新:"
+              echo
+              git log --pretty=format:"- %s" "$prev..HEAD"
+            else
+              # 首次发布、tag 缺失或历史被改写:退回最近 20 条提交
+              git log --pretty=format:"- %s" -n 20 HEAD
+            fi
+            echo
+          } > $GITHUB_WORKSPACE/release.md
+          cat $GITHUB_WORKSPACE/release.md
       - uses: actions/download-artifact@v4
         with:
           path: apk/
