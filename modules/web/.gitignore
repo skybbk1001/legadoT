@@ -28,3 +28,6 @@ coverage
 *.sw?
 
 *.tsbuildinfo
+
+# 构建时从 App assets 同步的 JS 源模板（vite.config.ts copy-js-source-template）
+public/js_source_template.js

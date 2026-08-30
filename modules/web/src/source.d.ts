@@ -78,6 +78,8 @@ type BookSoure = BaseSource & {
   ruleContent?: ContentRule
   // 段评规则
   ruleReview?: ReviewRule
+  // JS 源主脚本；非空即为 JS 源（脚本是元数据唯一真理源，保存走 saveJsSource）
+  mainJs?: string
 }
 type RuleSearch = {
   checkKeyWord?: string

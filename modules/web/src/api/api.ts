@@ -10,7 +10,7 @@ import type {
   BookProgress,
   SeachBook,
 } from '@/book'
-import type { Source } from '@/source'
+import type { Source, BookSoure } from '@/source'
 
 export type LeagdoApiResponse<T> = {
   isSuccess: boolean
@@ -132,6 +132,15 @@ const saveSource = (data: Source) =>
     ? ajax.post<LeagdoApiResponse<string>>('saveBookSource', data)
     : ajax.post<LeagdoApiResponse<string>>('saveRssSource', data)
 
+/**
+ * JS 源保存：body 为脚本原文（非 JSON），后端经 JsSourceConfig.extract
+ * 提取 config 元数据并保留用户态字段，响应 data 为完整 BookSource。
+ */
+const saveJsSource = (js: string) =>
+  ajax.post<LeagdoApiResponse<BookSoure>>('saveJsSource', js, {
+    headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+  })
+
 const saveSources = (data: Source[]) =>
   isBookSource
     ? ajax.post<LeagdoApiResponse<Source[]>>('saveBookSources', data)
@@ -218,6 +227,7 @@ export default {
   getSources,
   saveSources,
   saveSource,
+  saveJsSource,
   deleteSource,
   debug,
 

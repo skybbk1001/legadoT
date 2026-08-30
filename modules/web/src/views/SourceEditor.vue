@@ -1,6 +1,8 @@
 <template>
   <div class="editor">
-    <source-tab-form class="left" :config="config" />
+    <source-entry v-if="showEntry" class="left" />
+    <js-source-editor v-else-if="isJsSource" class="left" />
+    <source-tab-form v-else class="left" :config="config" />
     <tool-bar />
     <source-tab-tools class="right" />
   </div>
@@ -11,18 +13,31 @@ import rssSourceConfig from '@/config/rssSourceEditConfig'
 import '@/assets/sourceeditor.css'
 import { useDark } from '@vueuse/core'
 import type { SourceConfig } from '@/config/sourceConfig'
+import { useSourceStore } from '@/store'
+import { isJsBookSource } from '@utils/souce'
 
 useDark()
 
+const store = useSourceStore()
+
 let config: SourceConfig
 
-if (/bookSource/i.test(location.href)) {
+const isBookSourcePage = /bookSource/i.test(location.href)
+if (isBookSourcePage) {
   config = bookSourceConfig as SourceConfig
   document.title = '书源管理'
 } else {
   config = rssSourceConfig as SourceConfig
   document.title = '订阅源管理'
 }
+
+/** 书源页未进入编辑时显示新建入口；订阅源页保持原表单 */
+const showEntry = computed(() => isBookSourcePage && !store.editing)
+
+/** 当前编辑源带 mainJs 即按 JS 源展示脚本编辑器（订阅源页永不命中） */
+const isJsSource = computed(
+  () => isBookSourcePage && isJsBookSource(store.currentSource),
+)
 </script>
 <style lang="scss" scoped>
 .editor {

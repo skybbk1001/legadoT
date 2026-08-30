@@ -4,6 +4,7 @@ import {
   emptyRssSource,
   getSourceUniqueKey,
   convertSourcesToMap,
+  fetchJsSourceTemplate,
 } from '@utils/souce'
 import type { BookSoure, RssSource, Source } from '@/source'
 
@@ -17,6 +18,7 @@ export const useSourceStore = defineStore('source', {
       rssSources: shallowRef([] as RssSource[]), // 临时存放所有订阅源
       savedSources: [] as Source[], // 批量保存到阅读app成功的源
       currentSource: JSON.parse(JSON.stringify(emptySource)) as Source, // 当前编辑的源
+      editing: false, // 是否已进入编辑界面（false 时书源页左侧显示新建入口）
       currentTab: localStorage.getItem('tabName') || 'editTab',
       editTabSource: {} as Source, // 生成序列化的json数据
       isDebuging: false,
@@ -79,7 +81,23 @@ export const useSourceStore = defineStore('source', {
     },
     // 更改当前编辑的源qq
     changeCurrentSource(source: Source) {
+      this.editing = true
       this.currentSource = JSON.parse(JSON.stringify(source))
+    },
+    /** 新建声明式书源/订阅源：空表单进入编辑 */
+    createSource() {
+      this.changeCurrentSource(JSON.parse(JSON.stringify(emptySource)))
+    },
+    /** 新建 JS 源：载入模板进入脚本编辑；模板拉取失败抛错由调用方提示 */
+    async createJsSource() {
+      const template = await fetchJsSourceTemplate()
+      const source = JSON.parse(JSON.stringify(emptyBookSource)) as BookSoure
+      // 显式带上基础键，保证列表/调试等按 key 取值的路径正常
+      source.bookSourceUrl = ''
+      source.bookSourceName = ''
+      source.bookSourceType = 0
+      source.mainJs = template
+      this.changeCurrentSource(source)
     },
     // update editTab tabName and editTab info
     changeTabName(tabName: string) {
@@ -112,6 +130,7 @@ export const useSourceStore = defineStore('source', {
         historyObj.old.push(this.currentSource)
         if (historyObj.new.length) {
           this.currentSource = historyObj.new.pop()
+          this.editing = true
         }
         localStorage.setItem('history', JSON.stringify(historyObj))
       }
@@ -122,6 +141,7 @@ export const useSourceStore = defineStore('source', {
     clearEdit() {
       this.editTabSource = {} as Source
       this.currentSource = JSON.parse(JSON.stringify(emptySource)) //复制一份新对象
+      this.editing = false // 返回新建入口
     },
 
     // clear all source

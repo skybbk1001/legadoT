@@ -21,6 +21,8 @@
 <script setup lang="ts">
 import API from '@api'
 import { Search } from '@element-plus/icons-vue'
+import { isJsBookSource } from '@utils/souce'
+import type { BookSoure } from '@/source'
 
 const store = useSourceStore()
 
@@ -42,7 +44,20 @@ const appendDebugMsg = (msg: string) => {
 const startDebug = async () => {
   printDebug.value = ''
   try {
-    await API.saveSource(store.currentSource)
+    const source = store.currentSource
+    if (isJsBookSource(source)) {
+      // JS 源调试前先按脚本原文落库：extract 失败直接输出错误，不发起调试
+      const { data } = await API.saveJsSource(
+        (source as BookSoure).mainJs ?? '',
+      )
+      if (!data.isSuccess) {
+        appendDebugMsg(`JS源保存失败: ${data.errorMsg}`)
+        return store.debugFinish()
+      }
+      store.changeCurrentSource(data.data)
+    } else {
+      await API.saveSource(source)
+    }
   } catch (e) {
     store.debugFinish()
     throw e

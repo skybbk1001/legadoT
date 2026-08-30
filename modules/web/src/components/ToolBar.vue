@@ -1,13 +1,14 @@
 <template>
   <div class="menu flex-column-center">
-    <el-button
-      v-for="button in buttons"
-      size="large"
-      :key="button.name"
-      @click="button.action"
-    >
-      {{ button.name }}
-    </el-button>
+    <template v-for="button in buttons" :key="button.name">
+      <el-button
+        v-if="!button.bookSourceOnly || isBookSourcePage"
+        size="large"
+        @click="button.action"
+      >
+        {{ button.name }}
+      </el-button>
+    </template>
     <el-button size="large" @click="() => (hotkeysDialogVisible = true)"
       >快捷键</el-button
     >
@@ -68,7 +69,15 @@
 import API from '@api'
 import { CircleCheckFilled, Edit } from '@element-plus/icons-vue'
 import hotkeys from 'hotkeys-js'
-import { getSourceName, isInvaildSource, normalizeSource } from '../utils/souce'
+import {
+  getSourceName,
+  isInvaildSource,
+  isJsBookSource,
+  normalizeSource,
+} from '../utils/souce'
+import type { BookSoure } from '@/source'
+
+const isBookSourcePage = /bookSource/i.test(location.href)
 
 const store = useSourceStore()
 const pull = () => {
@@ -167,6 +176,9 @@ const redo = () => {
 
 const saveSource = () => {
   const source = store.currentSource
+  if (isJsBookSource(source)) {
+    return saveJsSource(source)
+  }
   if (isInvaildSource(source)) {
     normalizeSource(source)
     API.saveSource(source).then(({ data }) => {
@@ -193,11 +205,62 @@ const saveSource = () => {
   }
 }
 
+/** JS 源保存：提交脚本原文，用 App 提取结果回填（脚本改名/改地址也能反映） */
+const saveJsSource = (source: BookSoure) => {
+  const js = source.mainJs!
+  const oldUrl = source.bookSourceUrl
+  API.saveJsSource(js).then(({ data }) => {
+    if (data.isSuccess) {
+      const saved = data.data
+      ElMessage({
+        message: `JS源《${saved.bookSourceName}》已成功保存到「阅读3.0APP」`,
+        type: 'success',
+      })
+      store.changeCurrentSource(saved)
+      store.saveCurrentSource()
+      // 脚本改了 bookSourceUrl 时移除列表里的旧键，避免残留旧源
+      if (oldUrl && oldUrl !== saved.bookSourceUrl) {
+        const stale = store.sourcesMap.get(oldUrl)
+        if (stale) store.deleteSources([stale])
+      }
+    } else {
+      ElMessage({
+        message: `JS源保存失败!\nErrorMsg: ${data.errorMsg}`,
+        type: 'error',
+      })
+    }
+  })
+}
+
 const debug = () => {
   store.startDebug()
 }
 
-const buttons = ref<{ name: string; hotKeys: string[]; action: () => void }[]>(
+/** 新建 JS 源：载入模板进入脚本编辑（模板与 App 端同源，构建期同步） */
+const newJsSource = async () => {
+  try {
+    await store.createJsSource()
+    ElMessage({
+      message: '已载入 JS 源模板，编辑后点 ✓保存源 存入 App',
+      type: 'success',
+    })
+  } catch (e) {
+    ElMessage({
+      message: (e as Error).message || 'JS 源模板加载失败',
+      type: 'error',
+    })
+  }
+}
+
+interface ToolButton {
+  name: string
+  hotKeys: string[]
+  action: () => void
+  /** 仅书源页显示（订阅源页隐藏，不占热键位序） */
+  bookSourceOnly?: boolean
+}
+
+const buttons = ref<ToolButton[]>(
   Array.of(
     { name: '⇈推送源', hotKeys: [], action: push },
     { name: '⇊拉取源', hotKeys: [], action: pull },
@@ -208,6 +271,8 @@ const buttons = ref<{ name: string; hotKeys: string[]; action: () => void }[]>(
     { name: '↷重做操作', hotKeys: [], action: redo },
     { name: '⇏调试源', hotKeys: [], action: debug },
     { name: '✓保存源', hotKeys: [], action: saveSource },
+    // 追加在末尾：不影响 localStorage 里既有快捷键的位序映射
+    { name: '＋新建JS源', hotKeys: [], action: newJsSource, bookSourceOnly: true },
   ),
 )
 const hotkeysDialogVisible = ref(true)
@@ -293,7 +358,10 @@ function readHotkeysConfig() {
     if (localStorageConfig === null) return false
     const config = JSON.parse(localStorageConfig)
     if (!Array.isArray(config) || config.length == 0) return false
-    buttons.value.forEach((button, index) => (button.hotKeys = config[index]))
+    // 按钮集可能新增（如 ＋新建JS源），旧配置长度不足时补空数组
+    buttons.value.forEach(
+      (button, index) => (button.hotKeys = config[index] ?? []),
+    )
     return true
   } catch {
     ElMessage({ message: '快捷键配置错误', type: 'error' })
