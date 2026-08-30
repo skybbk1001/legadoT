@@ -6,6 +6,7 @@ import androidx.lifecycle.MutableLiveData
 import io.legado.app.constant.AppLog
 import io.legado.app.constant.AppPattern
 import io.legado.app.constant.AppPattern.bookFileRegex
+import io.legado.app.constant.AppPattern.jsFileRegex
 import io.legado.app.data.entities.Book
 import io.legado.app.model.localBook.LocalBook
 import io.legado.app.utils.*
@@ -51,6 +52,10 @@ class FileAssociationViewModel(application: Application) : BaseAssociationViewMo
         }.onFailure {
             it.printOnDebug()
             AppLog.put("尝试导入为JSON文件失败\n${it.localizedMessage}", it)
+        }
+        if (fileDoc.name.matches(jsFileRegex)) {
+            successLive.postValue("bookSource" to fileDoc.uri.toString())
+            return
         }
         if (fileDoc.name.matches(bookFileRegex)) {
             importBookLiveData.postValue(fileDoc.uri)
