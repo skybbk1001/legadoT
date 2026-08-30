@@ -299,8 +299,10 @@ abstract class BaseReadBookActivity :
             startDate.isFocusable = false // 设置为false，不允许获得焦点
             startDate.isCursorVisible = false // 不显示光标
             startDate.setOnClickListener {
-                // 获取当前日期
-                val localStartDate = LocalDate.parse(startDate.text)
+                // 获取当前日期(历史数据可能存有非法日期如 "0001-00-00"，解析失败时回退到今天)
+                val localStartDate = runCatching {
+                    LocalDate.parse(startDate.text.toString())
+                }.getOrNull() ?: LocalDate.now()
                 // 创建 DatePickerDialog
                 val datePickerDialog = DatePickerDialog(
                     root.context,
@@ -320,16 +322,16 @@ abstract class BaseReadBookActivity :
             customView { alertBinding.root }
             okButton {
                 alertBinding.run {
-                    val start = editStart.text!!.toString().let {
-                        if (it.isEmpty()) 0 else it.toInt()
-                    }
-                    val num = editNum.text!!.toString().let {
-                        if (it.isEmpty()) book.totalChapterNum else it.toInt()
-                    }
+                    // 输入框虽已限制 number/maxLength，粘贴等异常输入仍可能非法，toIntOrNull 兜底防崩
+                    val start = (editStart.text.toString().toIntOrNull() ?: 0).coerceAtLeast(0)
+                    val num = (editNum.text.toString().toIntOrNull() ?: book.totalChapterNum)
+                        .coerceAtLeast(1)
                     val enabled = srEnabled.isChecked
-                    val date = startDate.text!!.toString().let {
+                    val date = startDate.text.toString().let {
                         if (it.isEmpty()) LocalDate.now()
-                        else LocalDate.parse(it, dateFormatter)
+                        else runCatching {
+                            LocalDate.parse(it, dateFormatter)
+                        }.getOrNull() ?: LocalDate.now()
                     }
                     book.setStartDate(date)
                     book.setDailyChapters(num)

@@ -356,7 +356,9 @@ fun Book.getExportFileName(
 fun Book.simulatedTotalChapterNum(): Int {
     return if (readSimulating()) {
         val currentDate = LocalDate.now()
-        val daysPassed = between(config.startDate, currentDate).days + 1
+        // 起始日期可能为空(旧数据/导入备份)，缺失时按今天处理，避免 Period.between 空指针
+        val startDate = config.startDate ?: currentDate
+        val daysPassed = between(startDate, currentDate).days + 1
         // 计算当前应该解锁到哪一章
         val chaptersToUnlock =
             max(0, (config.startChapter ?: 0) + (daysPassed * config.dailyChapters))

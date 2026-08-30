@@ -9,8 +9,11 @@ import com.google.gson.JsonParseException
 import com.google.gson.JsonSyntaxException
 import com.google.gson.Strictness
 import com.google.gson.ToNumberPolicy
+import com.google.gson.TypeAdapter
 import com.google.gson.internal.LinkedTreeMap
 import com.google.gson.reflect.TypeToken
+import com.google.gson.stream.JsonReader
+import com.google.gson.stream.JsonToken
 import com.google.gson.stream.JsonWriter
 import io.legado.app.data.entities.rule.BookInfoRule
 import io.legado.app.data.entities.rule.ContentRule
@@ -23,6 +26,7 @@ import java.io.InputStreamReader
 import java.io.OutputStream
 import java.io.OutputStreamWriter
 import java.lang.reflect.Type
+import java.time.LocalDate
 import kotlin.math.ceil
 
 val INITIAL_GSON: Gson by lazy {
@@ -33,6 +37,7 @@ val INITIAL_GSON: Gson by lazy {
         )
         .registerTypeAdapter(Int::class.java, IntJsonDeserializer())
         .registerTypeAdapter(String::class.java, StringJsonDeserializer())
+        .registerTypeAdapter(LocalDate::class.java, LocalDateTypeAdapter())
         .setObjectToNumberStrategy(ToNumberPolicy.LONG_OR_DOUBLE)
         .disableHtmlEscaping()
         .setPrettyPrinting()
@@ -239,6 +244,64 @@ class MapDeserializerDoubleAsIntFix :
             }
         }
         return null
+    }
+
+}
+
+/**
+ * [LocalDate] 类型适配器。
+ *
+ * Gson 默认通过反射读写 `LocalDate` 的私有 final 字段(year/month/day)，
+ * 而反射设置 final 字段在不同 Android 版本/ROM 上并不可靠，可能反序列化出
+ * 非法日期(如 month=0, day=0 -> "0001-00-00")，进而导致后续 `LocalDate.parse`
+ * 抛出 [java.time.format.DateTimeParseException]。
+ *
+ * 这里统一序列化为 ISO-8601 字符串，并兼容历史遗留的对象格式
+ * `{"year":..., "month":..., "day":...}`，解析失败时返回 null。
+ */
+class LocalDateTypeAdapter : TypeAdapter<LocalDate?>() {
+
+    override fun write(out: JsonWriter, value: LocalDate?) {
+        if (value == null) {
+            out.nullValue()
+        } else {
+            out.value(value.toString())
+        }
+    }
+
+    override fun read(input: JsonReader): LocalDate? {
+        return when (input.peek()) {
+            JsonToken.NULL -> {
+                input.nextNull()
+                null
+            }
+
+            JsonToken.STRING -> runCatching {
+                LocalDate.parse(input.nextString())
+            }.getOrNull()
+
+            JsonToken.BEGIN_OBJECT -> {
+                var year = 0
+                var month = 0
+                var day = 0
+                input.beginObject()
+                while (input.hasNext()) {
+                    when (input.nextName()) {
+                        "year" -> year = input.nextInt()
+                        "month" -> month = input.nextInt()
+                        "day" -> day = input.nextInt()
+                        else -> input.skipValue()
+                    }
+                }
+                input.endObject()
+                runCatching { LocalDate.of(year, month, day) }.getOrNull()
+            }
+
+            else -> {
+                input.skipValue()
+                null
+            }
+        }
     }
 
 }
