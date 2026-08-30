@@ -882,6 +882,13 @@ object ReadBook : CoroutineScope by MainScope() {
     }
 
     /**
+     * 判断内容是否为正文加载失败的占位文本。
+     * 失败占位文本不应被当作正文，否则段评会在失败提示上渲染图标。
+     */
+    private fun String.isContentLoadFailed(): Boolean =
+        startsWith("获取正文失败") || startsWith("加载正文失败")
+
+    /**
      * 内容加载完成
      */
     @Synchronized
@@ -909,7 +916,8 @@ object ReadBook : CoroutineScope by MainScope() {
                 .getContent(book, chapter, content, includeTitle = false)
             ensureActive()
             val textChapter = ChapterProvider.getTextChapterAsync(
-                this, book, chapter, displayTitle, contents, simulatedChapterSize
+                this, book, chapter, displayTitle, contents, simulatedChapterSize,
+                hasBodyContent = contents.textList.isNotEmpty() && !content.isContentLoadFailed()
             )
             when (val offset = chapter.index - durChapterIndex) {
                 0 -> curChapterLoadingLock.withLock {
@@ -998,7 +1006,8 @@ object ReadBook : CoroutineScope by MainScope() {
             val contents = contentProcessor
                 .getContent(book, chapter, content, includeTitle = false)
             val textChapter = ChapterProvider.getTextChapterAsync(
-                this@ReadBook, book, chapter, displayTitle, contents, simulatedChapterSize
+                this@ReadBook, book, chapter, displayTitle, contents, simulatedChapterSize,
+                hasBodyContent = contents.textList.isNotEmpty() && !content.isContentLoadFailed()
             )
             when (val offset = chapter.index - durChapterIndex) {
                 0 -> {

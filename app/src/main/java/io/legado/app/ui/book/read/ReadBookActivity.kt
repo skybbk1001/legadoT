@@ -1756,11 +1756,20 @@ class ReadBookActivity : BaseReadBookActivity(),
         showDialogFragment(ReviewDetailDialog(paragraphNum, count))
     }
 
+    /**
+     * 清理段评状态并作废在途请求，防止在正文加载失败/未配置段评等场景下，
+     * 迟到的段评统计响应把图标重新渲染上去。
+     */
+    private fun invalidateReviewSummary() {
+        reviewSummaryRequestToken++
+        reviewSummaryAppliedKey = null
+        reviewSummaryLoadingKey = null
+        ChapterProvider.clearReviewProviders()
+    }
+
     private fun loadReviewSummaryIfNeeded() {
         val source = ReadBook.bookSource ?: run {
-            reviewSummaryAppliedKey = null
-            reviewSummaryLoadingKey = null
-            ChapterProvider.clearReviewProviders()
+            invalidateReviewSummary()
             return
         }
         if (source.isJsSource()) {
@@ -1768,30 +1777,22 @@ class ReadBookActivity : BaseReadBookActivity(),
             return
         }
         val reviewRule = source.ruleReview ?: run {
-            reviewSummaryAppliedKey = null
-            reviewSummaryLoadingKey = null
-            ChapterProvider.clearReviewProviders()
+            invalidateReviewSummary()
             return
         }
         if (!reviewRule.enabled) {
-            reviewSummaryAppliedKey = null
-            reviewSummaryLoadingKey = null
-            ChapterProvider.clearReviewProviders()
+            invalidateReviewSummary()
             return
         }
         val rule = reviewRule.reviewSummaryUrl?.takeIf { it.isNotBlank() } ?: run {
-            reviewSummaryAppliedKey = null
-            reviewSummaryLoadingKey = null
-            ChapterProvider.clearReviewProviders()
+            invalidateReviewSummary()
             return
         }
         if (reviewRule.summaryListRule.isNullOrBlank() ||
             reviewRule.summaryParagraphIndexRule.isNullOrBlank() ||
             reviewRule.summaryCountRule.isNullOrBlank()
         ) {
-            reviewSummaryAppliedKey = null
-            reviewSummaryLoadingKey = null
-            ChapterProvider.clearReviewProviders()
+            invalidateReviewSummary()
             return
         }
         val book = ReadBook.book ?: return
@@ -1801,9 +1802,7 @@ class ReadBookActivity : BaseReadBookActivity(),
             textChapter.chapter.index == chapterIndex &&
             !textChapter.hasBodyContent
         ) {
-            reviewSummaryAppliedKey = null
-            reviewSummaryLoadingKey = null
-            ChapterProvider.clearReviewProviders()
+            invalidateReviewSummary()
             return
         }
         val key = buildReviewSummaryKey(book, chapterIndex)
@@ -1882,9 +1881,7 @@ class ReadBookActivity : BaseReadBookActivity(),
             textChapter.chapter.index == chapterIndex &&
             !textChapter.hasBodyContent
         ) {
-            reviewSummaryAppliedKey = null
-            reviewSummaryLoadingKey = null
-            ChapterProvider.clearReviewProviders()
+            invalidateReviewSummary()
             return
         }
         val key = buildReviewSummaryKey(book, chapterIndex)

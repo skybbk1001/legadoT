@@ -378,13 +378,14 @@ object ChapterProvider {
         displayTitle: String,
         bookContent: BookContent,
         chapterSize: Int,
+        hasBodyContent: Boolean = bookContent.textList.isNotEmpty(),
     ): TextChapter {
 
         val textChapter = TextChapter(
             bookChapter,
             bookChapter.index, displayTitle,
             chapterSize,
-            bookContent.textList.isNotEmpty(),
+            hasBodyContent,
             bookContent.sameTitleRemoved,
             bookChapter.isVip,
             bookChapter.isPay,
