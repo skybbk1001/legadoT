@@ -47,10 +47,7 @@ fun View.applyAmbientBackground(
     if (AppConfig.isEInkMode) return Job().apply { complete() }
     val bitmap = (coverDrawable as? BitmapDrawable)?.bitmap
         ?: return Job().apply { complete() }
-    val defaultBitmap = (BookCover.defaultDrawable as? BitmapDrawable)?.bitmap
-    if (coverDrawable === BookCover.defaultDrawable ||
-        (defaultBitmap != null && bitmap === defaultBitmap)
-    ) return Job().apply { complete() }
+    if (BookCover.isDefaultCover(coverDrawable)) return Job().apply { complete() }
     val baseBg = context.backgroundColor
     return scope.launch(Dispatchers.Default) {
         val palette = runCatching { ImageSeedExtractor.extractPalette(bitmap, 2) }.getOrNull()

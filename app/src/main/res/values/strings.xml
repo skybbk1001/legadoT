@@ -1030,6 +1030,10 @@ Placeholders:
     <string name="contributors_summary">gedoor,Invinciblelee,Xwite etc. Checking in github for details</string>
     <string name="clear_cache_summary">Clear the cache of the downloaded books and fonts</string>
     <string name="default_cover">Default cover</string>
+    <string name="cover_library">Default cover library</string>
+    <string name="cover_library_hint">Tap an image to remove; covers are assigned by book name</string>
+    <string name="cover_library_empty">No images yet, tap the button below to add</string>
+    <string name="cover_count">%1$d image(s)</string>
     <string name="restore_ignore">Bypass list</string>
     <string name="restore_ignore_summary">Ignore some contents while restoring</string>
     <string name="read_config">Reading interface settings</string>

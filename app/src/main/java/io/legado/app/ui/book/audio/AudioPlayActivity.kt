@@ -322,7 +322,8 @@ class AudioPlayActivity :
     }
 
     private fun upCover(path: String?) {
-        BookCover.load(this, path, sourceOrigin = AudioPlay.bookSource?.bookSourceUrl) {
+        BookCover.load(this, path, sourceOrigin = AudioPlay.bookSource?.bookSourceUrl,
+            name = AudioPlay.book?.name) {
             binding.ivCover.post {
                 ambientJob?.cancel()
                 ambientJob = binding.root.applyAmbientBackground(

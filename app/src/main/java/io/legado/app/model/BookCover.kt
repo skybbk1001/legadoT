@@ -30,9 +30,12 @@ import io.legado.app.model.analyzeRule.AnalyzeRule.Companion.setCoroutineContext
 import io.legado.app.model.analyzeRule.AnalyzeUrl
 import io.legado.app.utils.BitmapUtils
 import io.legado.app.utils.GSON
+import io.legado.app.utils.fromJsonArray
 import io.legado.app.utils.fromJsonObject
 import io.legado.app.utils.getPrefBoolean
 import io.legado.app.utils.getPrefString
+import io.legado.app.utils.putPrefString
+import io.legado.app.utils.removePref
 import kotlinx.coroutines.currentCoroutineContext
 import splitties.init.appCtx
 import java.io.File
@@ -48,15 +51,28 @@ object BookCover {
         private set
     var drawBookAuthor = true
         private set
-    lateinit var defaultDrawable: Drawable
-        private set
 
+    /**
+     * 图库为空或非书名上下文(如 BookController/PhotoDialog)时的兜底封面。
+     * 保留该公开属性名以兼容既有调用方。
+     */
+    val defaultDrawable: Drawable
+        get() = fallbackDrawable
+
+    @SuppressLint("UseCompatLoadingForDrawables")
+    private fun loadFallbackDrawable(): Drawable =
+        appCtx.resources.getDrawable(R.drawable.image_cover_default, null)
+
+    private val fallbackDrawable: Drawable by lazy { loadFallbackDrawable() }
+
+    /** 当前主题默认封面图库路径(空则回退兜底图) */
+    private var coverPaths: List<String> = emptyList()
+    private val coverDrawableCache = HashMap<String, Drawable>()
 
     init {
         upDefaultCover()
     }
 
-    @SuppressLint("UseCompatLoadingForDrawables")
     fun upDefaultCover() {
         val isNightTheme = AppConfig.isNightTheme
         drawBookName = if (isNightTheme) {
@@ -69,15 +85,67 @@ object BookCover {
         } else {
             appCtx.getPrefBoolean(PreferKey.coverShowAuthor, true)
         }
-        val key = if (isNightTheme) PreferKey.defaultCoverDark else PreferKey.defaultCover
-        val path = appCtx.getPrefString(key)
-        if (path.isNullOrBlank()) {
-            defaultDrawable = appCtx.resources.getDrawable(R.drawable.image_cover_default, null)
-            return
+        coverPaths = getDefaultCoverPaths(isNightTheme)
+        coverDrawableCache.clear()
+    }
+
+    /**
+     * 读默认封面图库路径。兼容旧版单路径(未加 JSON 包裹的裸路径)数据。
+     */
+    fun getDefaultCoverPaths(isNight: Boolean = AppConfig.isNightTheme): List<String> {
+        val key = if (isNight) PreferKey.defaultCoverDark else PreferKey.defaultCover
+        val raw = appCtx.getPrefString(key) ?: return emptyList()
+        if (!raw.startsWith("[")) {
+            return listOf(raw)
         }
-        defaultDrawable = kotlin.runCatching {
+        return GSON.fromJsonArray<String>(raw).getOrNull()?.filter { it.isNotBlank() } ?: emptyList()
+    }
+
+    /**
+     * 保存默认封面图库路径并刷新内存池。
+     */
+    fun saveDefaultCoverPaths(paths: List<String>, isNight: Boolean = AppConfig.isNightTheme) {
+        val key = if (isNight) PreferKey.defaultCoverDark else PreferKey.defaultCover
+        if (paths.isEmpty()) {
+            appCtx.removePref(key)
+        } else {
+            appCtx.putPrefString(key, GSON.toJson(paths))
+        }
+        upDefaultCover()
+    }
+
+    /**
+     * 按书名确定性取一张默认封面:同书名永远同图(改名会换图);图库为空回退兜底图。
+     */
+    fun defaultDrawableFor(name: String?): Drawable {
+        if (coverPaths.isEmpty()) return defaultDrawable
+        val path = if (name.isNullOrBlank()) {
+            coverPaths.first()
+        } else {
+            coverPaths[(name.hashCode() and Int.MAX_VALUE) % coverPaths.size]
+        }
+        return decodeCached(path) ?: defaultDrawable
+    }
+
+    /**
+     * 是否为默认封面(兜底图或图库中某张)。供氛围背景等"非真实封面不派生"逻辑使用。
+     */
+    fun isDefaultCover(drawable: Drawable?): Boolean {
+        if (drawable == null) return true
+        if (drawable === fallbackDrawable) return true
+        if (coverPaths.isEmpty()) return false
+        val bitmap = (drawable as? BitmapDrawable)?.bitmap
+        return coverDrawableCache.values.any {
+            it === drawable || (bitmap != null && (it as? BitmapDrawable)?.bitmap === bitmap)
+        }
+    }
+
+    @SuppressLint("UseCompatLoadingForDrawables")
+    private fun decodeCached(path: String): Drawable? {
+        coverDrawableCache[path]?.let { return it }
+        return kotlin.runCatching {
             BitmapDrawable(appCtx.resources, BitmapUtils.decodeBitmap(path, 600, 900))
-        }.getOrDefault(appCtx.resources.getDrawable(R.drawable.image_cover_default, null))
+        }.getOrNull()?.also { coverDrawableCache[path] = it }
     }
 
     /**
@@ -88,8 +156,10 @@ object BookCover {
         path: String?,
         loadOnlyWifi: Boolean = false,
         sourceOrigin: String? = null,
+        name: String? = null,
         onLoadFinish: (() -> Unit)? = null,
     ): RequestBuilder<Drawable> {
+        val defaultDrawable = defaultDrawableFor(name)
         if (AppConfig.useDefaultCover) {
             return ImageLoader.load(context, defaultDrawable)
                 .centerCrop()

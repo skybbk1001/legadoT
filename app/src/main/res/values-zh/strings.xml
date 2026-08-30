@@ -978,6 +978,10 @@ Cron 使用 5 个字段：**分 时 日 月 周**
     <string name="contributors_summary">gedoor、Invinciblelee 和 Xwite 等，详情请在 GitHub 中查看</string>
     <string name="clear_cache_summary">清除已下载书籍和字体缓存</string>
     <string name="default_cover">默认封面</string>
+    <string name="cover_library">默认封面图库</string>
+    <string name="cover_library_hint">点击图片可移除，添加后按书名自动分配</string>
+    <string name="cover_library_empty">图库为空，点击下方按钮添加图片</string>
+    <string name="cover_count">%1$d 张图片</string>
     <string name="restore_ignore">恢复忽略列表</string>
     <string name="restore_ignore_summary">恢复时忽略一些内容不恢复，方便不同手机配置不同</string>
     <string name="read_config">阅读界面设置</string>

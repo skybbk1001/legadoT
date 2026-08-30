@@ -13,7 +13,7 @@ class AudioPlayerTest {
         assertTrue(ext.contains("fun View.applyAmbientBackground"))
         assertTrue("染不是涂:必须 blend", ext.contains("blendARGB"))
         assertTrue("eink 守卫", ext.contains("isEInkMode"))
-        assertTrue("默认封面守卫", ext.contains("defaultDrawable"))
+        assertTrue("默认封面守卫", ext.contains("isDefaultCover"))
         // IMMERSIVE 的有机纹理底:微缩放大伪模糊(封面缩 16×16 铺满,插值即模糊)——
         // 治"几何色块单调",用户验收回合定案,不许退回纯几何渐变
         assertTrue("IMMERSIVE 必须有微缩纹理底", ext.contains("createScaledBitmap"))
