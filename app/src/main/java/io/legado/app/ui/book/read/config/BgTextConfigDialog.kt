@@ -16,6 +16,7 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.widget.TooltipCompat
 import androidx.core.graphics.toColorInt
 import androidx.core.view.isGone
+import androidx.core.view.isVisible
 import com.google.android.material.slider.Slider
 import io.legado.app.R
 import io.legado.app.base.BaseDialogFragment
@@ -23,16 +24,21 @@ import io.legado.app.constant.AppLog
 import io.legado.app.constant.EventBus
 import io.legado.app.databinding.DialogEditTextBinding
 import io.legado.app.databinding.DialogReadBgTextBinding
+import io.legado.app.databinding.DialogReviewIconEditBinding
+import io.legado.app.databinding.DialogReviewIconManageBinding
 import io.legado.app.databinding.ItemBgImageBinding
+import io.legado.app.databinding.ItemReviewIconBinding
 import io.legado.app.help.DefaultData
 import io.legado.app.help.book.isImage
 import io.legado.app.help.config.AppConfig
 import io.legado.app.help.config.ReadBookConfig
+import io.legado.app.help.config.ReviewIconStore
 import io.legado.app.help.http.newCallResponseBody
 import io.legado.app.help.http.okHttpClient
 import io.legado.app.lib.dialogs.SelectItem
 import io.legado.app.lib.dialogs.alert
 import io.legado.app.lib.dialogs.selector
+import io.legado.app.lib.theme.accentColor
 import io.legado.app.lib.theme.bottomBackground
 import io.legado.app.lib.theme.getPrimaryTextColor
 import io.legado.app.lib.theme.getSecondaryTextColor
@@ -55,6 +61,7 @@ import io.legado.app.utils.createFileIfNotExist
 import io.legado.app.utils.createFileReplace
 import io.legado.app.utils.createFolderReplace
 import io.legado.app.utils.delete
+import io.legado.app.utils.dpToPx
 import io.legado.app.utils.externalCache
 import io.legado.app.utils.externalFiles
 import io.legado.app.utils.find
@@ -263,34 +270,7 @@ class BgTextConfigDialog : BaseDialogFragment(R.layout.dialog_read_bg_text) {
             postEvent(EventBus.UP_CONFIG, arrayListOf(6, 9, 11))
         }
         binding.tvReviewIconSvg.setOnClickListener {
-            val alertBinding = DialogEditTextBinding.inflate(layoutInflater).apply {
-                editView.hint = getString(R.string.review_icon_svg_hint)
-                editView.setSingleLine(false)
-                editView.maxLines = 8
-                editView.setText(ReadBookConfig.reviewIconSvg)
-                editView.setSelection(editView.text?.length ?: 0)
-            }
-            val dialog = alert(R.string.review_icon_svg_title) {
-                customView { alertBinding.root }
-                okButton()
-                cancelButton()
-            }
-            dialog.getButton(AlertDialog.BUTTON_POSITIVE)?.setOnClickListener {
-                val newSvg = alertBinding.editView.text?.toString().orEmpty().trim()
-                val savedSvg = when {
-                    newSvg.isBlank() -> ""
-                    isValidReviewIconSvg(newSvg) -> newSvg
-                    else -> {
-                        toastOnUi(R.string.review_icon_svg_invalid)
-                        return@setOnClickListener
-                    }
-                }
-                if (savedSvg != ReadBookConfig.reviewIconSvg) {
-                    ReadBookConfig.reviewIconSvg = savedSvg
-                    notifyReviewIconStyleChanged(relayout = true)
-                }
-                dialog.dismiss()
-            }
+            showReviewIconManager()
         }
         binding.tvReviewIconSize.setOnClickListener {
             val alertBinding = DialogEditTextBinding.inflate(layoutInflater).apply {
@@ -509,6 +489,165 @@ class BgTextConfigDialog : BaseDialogFragment(R.layout.dialog_read_bg_text) {
         }
     }
 
+    /**
+     * 段评图标管理器:图标库网格中单击应用、长按编辑/删除,首个单元格恢复默认图标,末尾新增图标
+     */
+    @SuppressLint("InflateParams")
+    private fun showReviewIconManager() {
+        val context = requireContext()
+        val accentColor = context.accentColor
+        val managerBinding = DialogReviewIconManageBinding.inflate(layoutInflater)
+        val iconAdapter = ReviewIconAdapter(context, secondaryTextColor, accentColor)
+        managerBinding.recyclerView.adapter = iconAdapter
+        var defaultItemBinding: ItemReviewIconBinding? = null
+
+        fun refreshManagerSelection() {
+            val current = ReadBookConfig.reviewIconSvg.trim()
+            iconAdapter.selectedSvg = current
+            defaultItemBinding?.run {
+                tvName.setTextColor(if (current.isBlank()) accentColor else secondaryTextColor)
+                ivSelected.isVisible = current.isBlank()
+                ivSelected.setColorFilter(accentColor)
+            }
+            managerBinding.tvEmpty.isVisible = iconAdapter.isEmpty()
+        }
+
+        fun refreshIconItems() {
+            iconAdapter.setItems(ReviewIconStore.iconList.toList())
+            refreshManagerSelection()
+        }
+
+        iconAdapter.addHeaderView {
+            ItemReviewIconBinding.inflate(layoutInflater, it, false).apply {
+                defaultItemBinding = this
+                ivIcon.setImageBitmap(ReviewIconAdapter.createDefaultPreviewBitmap(secondaryTextColor))
+                tvName.text = getString(R.string.review_icon_default)
+                tvName.setTextColor(secondaryTextColor)
+                root.setOnClickListener {
+                    applyReviewIconSvg("")
+                    refreshManagerSelection()
+                }
+            }
+        }
+        iconAdapter.addFooterView {
+            ItemReviewIconBinding.inflate(layoutInflater, it, false).apply {
+                ivIcon.setImageResource(R.drawable.ic_add)
+                ivIcon.setColorFilter(secondaryTextColor, PorterDuff.Mode.SRC_IN)
+                tvName.text = getString(R.string.review_icon_add)
+                tvName.setTextColor(secondaryTextColor)
+                root.setOnClickListener {
+                    //当前自定义图标不在库中时,预填它方便直接入库保存
+                    val current = ReadBookConfig.reviewIconSvg.trim()
+                    val prefill = current.takeIf { it.isNotBlank() && !ReviewIconStore.containsSvg(it) }
+                    showReviewIconEditDialog(null, prefill.orEmpty()) { refreshIconItems() }
+                }
+            }
+        }
+        iconAdapter.setOnItemClickListener { _, item ->
+            applyReviewIconSvg(item.svg.trim())
+            refreshManagerSelection()
+        }
+        iconAdapter.setOnItemLongClickListener { _, item ->
+            showReviewIconItemMenu(item) { refreshIconItems() }
+            true
+        }
+        iconAdapter.setItems(ReviewIconStore.iconList.toList())
+        refreshManagerSelection()
+        alert(R.string.review_icon_svg_title) {
+            customView { managerBinding.root }
+            okButton()
+        }
+        //图标较多时限制列表高度,避免弹窗撑满屏幕
+        managerBinding.recyclerView.post {
+            val maxHeight = 360.dpToPx()
+            if (managerBinding.recyclerView.height > maxHeight) {
+                managerBinding.recyclerView.layoutParams.height = maxHeight
+                managerBinding.recyclerView.requestLayout()
+            }
+        }
+    }
+
+    /**
+     * 图标项长按菜单:编辑/删除
+     */
+    private fun showReviewIconItemMenu(
+        item: ReviewIconStore.ReviewIcon,
+        onChanged: () -> Unit
+    ) {
+        context?.selector(
+            item.name,
+            listOf(getString(R.string.edit), getString(R.string.delete))
+        ) { _, which ->
+            when (which) {
+                0 -> showReviewIconEditDialog(item, "") { onChanged() }
+
+                1 -> alert(getString(R.string.delete), item.name) {
+                    yesButton {
+                        ReviewIconStore.removeIcon(item)
+                        onChanged()
+                    }
+                    noButton()
+                }
+            }
+        }
+    }
+
+    /**
+     * 新增/编辑图标:名称 + SVG 模板,保存入库;新增或编辑当前应用图标时同步应用
+     */
+    @SuppressLint("InflateParams")
+    private fun showReviewIconEditDialog(
+        icon: ReviewIconStore.ReviewIcon?,
+        prefillSvg: String,
+        onChanged: () -> Unit
+    ) {
+        val alertBinding = DialogReviewIconEditBinding.inflate(layoutInflater).apply {
+            editName.setText(icon?.name)
+            editSvg.hint = getString(R.string.review_icon_svg_hint)
+            editSvg.setSingleLine(false)
+            editSvg.maxLines = 8
+            editSvg.setText(icon?.svg ?: prefillSvg)
+            editSvg.setSelection(editSvg.text?.length ?: 0)
+        }
+        val dialog = alert(if (icon == null) R.string.review_icon_add else R.string.edit) {
+            customView { alertBinding.root }
+            okButton()
+            cancelButton()
+        }
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE)?.setOnClickListener {
+            val newSvg = alertBinding.editSvg.text?.toString().orEmpty().trim()
+            if (newSvg.isBlank() || !isValidReviewIconSvg(newSvg)) {
+                toastOnUi(R.string.review_icon_svg_invalid)
+                return@setOnClickListener
+            }
+            val newName = alertBinding.editName.text?.toString().orEmpty().trim()
+                .ifBlank {
+                    getString(R.string.review_icon_default_name, ReviewIconStore.iconList.size + 1)
+                }
+            if (icon == null) {
+                ReviewIconStore.addIcon(newName, newSvg)
+                applyReviewIconSvg(newSvg)
+            } else {
+                val wasApplied = icon.svg.trim() == ReadBookConfig.reviewIconSvg.trim()
+                icon.name = newName
+                icon.svg = newSvg
+                ReviewIconStore.save()
+                if (wasApplied) {
+                    applyReviewIconSvg(newSvg)
+                }
+            }
+            onChanged()
+            dialog.dismiss()
+        }
+    }
+
+    private fun applyReviewIconSvg(svg: String) {
+        if (ReadBookConfig.reviewIconSvg != svg) {
+            ReadBookConfig.reviewIconSvg = svg
+            notifyReviewIconStyleChanged(relayout = true)
+        }
+    }
+
     private fun notifyReviewIconStyleChanged(relayout: Boolean) {
         ChapterProvider.clearReviewIconCache()
         if (relayout) {
@@ -518,7 +657,9 @@ class BgTextConfigDialog : BaseDialogFragment(R.layout.dialog_read_bg_text) {
     }
 
     private fun isValidReviewIconSvg(svg: String): Boolean {
-        val bitmap = SvgUtils.createBitmapFromSvgText(svg.replace("{{count}}", "88"), 48, 48)
+        val bitmap = SvgUtils.createBitmapFromSvgText(
+            svg.replace(ChapterProvider.reviewIconPlaceholder, "88"), 48, 48
+        )
         return bitmap?.let {
             it.recycle()
             true

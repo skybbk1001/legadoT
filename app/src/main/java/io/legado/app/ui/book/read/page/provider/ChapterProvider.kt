@@ -57,7 +57,8 @@ object ChapterProvider {
 
     //用于评论按钮的替换
     const val reviewChar = "▨"
-    private const val reviewIconPlaceholder = "{{count}}"
+    //段评图标SVG里的评论数量占位符
+    const val reviewIconPlaceholder = "{{count}}"
     private const val reviewIconCacheMaxBytes = 1024 * 1024
 
     const val indentChar = "　"
