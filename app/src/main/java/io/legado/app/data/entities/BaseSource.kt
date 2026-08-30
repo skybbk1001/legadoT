@@ -78,13 +78,16 @@ interface BaseSource : JsExtensions {
         return (matcher.group(2) ?: matcher.group(1))?.trim()
     }
 
-    fun loginUi(): List<RowUi>? {
+    fun loginUi(book: Book? = null, chapter: BookChapter? = null): List<RowUi>? {
         val rawLoginUi = loginUi?.trim().orEmpty()
         if (rawLoginUi.isBlank()) return null
         val loginUiJson = try {
             val jsRule = extractInlineJs(rawLoginUi)
             if (jsRule != null) {
-                val result = evalJS(jsRule)
+                val result = evalJS(jsRule) {
+                    put("book", book)
+                    put("chapter", chapter)
+                }
                 when {
                     result is String -> result
                     // NativeArray/NativeObject 等 Scriptable 内部可能嵌套 ConsString(模板字符串插值
@@ -114,16 +117,30 @@ interface BaseSource : JsExtensions {
      * v2 渲染:loginUi(state) 与 search 等同居(声明式源=loginUrl JS,JS源=mainJs),
      * 状态跨边界走 JSON 字符串。返回归一化 JSON({rows:[...]})。
      */
-    fun evalLoginUiV2(stateJson: String): String? {
+    fun evalLoginUiV2(
+        stateJson: String,
+        book: Book? = null,
+        chapter: BookChapter? = null,
+    ): String? {
         val loginJs = getLoginJs()
             ?: throw NoStackTraceException("登录UI v2 需要 loginUrl JS 承载 loginUi/loginAction 函数")
         val js = "$loginJs\nloginUi(JSON.parse(String(__loginState)))"
-        val result = evalJS(js) { put("__loginState", stateJson) }
+        val result = evalJS(js) {
+            put("__loginState", stateJson)
+            put("book", book)
+            put("chapter", chapter)
+        }
         return JsSourceEngine.normalizeJsResult(result)
     }
 
     /** v2 动作派发:返回归一化命令 JSON */
-    fun evalLoginActionV2(action: String, stateJson: String, formJson: String): String? {
+    fun evalLoginActionV2(
+        action: String,
+        stateJson: String,
+        formJson: String,
+        book: Book? = null,
+        chapter: BookChapter? = null,
+    ): String? {
         val loginJs = getLoginJs()
             ?: throw NoStackTraceException("登录UI v2 需要 loginUrl JS 承载 loginUi/loginAction 函数")
         val js = "$loginJs\n" +
@@ -132,6 +149,8 @@ interface BaseSource : JsExtensions {
             put("__loginAction", action)
             put("__loginState", stateJson)
             put("__loginForm", formJson)
+            put("book", book)
+            put("chapter", chapter)
         }
         return JsSourceEngine.normalizeJsResult(result)
     }
@@ -145,7 +164,7 @@ interface BaseSource : JsExtensions {
     /**
      * 调用login函数 实现登录请求
      */
-    fun login() {
+    fun login(book: Book? = null, chapter: BookChapter? = null) {
         val loginJs = getLoginJs()
         if (!loginJs.isNullOrBlank()) {
             @Language("js")
@@ -156,7 +175,10 @@ interface BaseSource : JsExtensions {
                     throw('Function login not implements!!!')
                 }
             """.trimIndent()
-            evalJS(js)
+            evalJS(js) {
+                put("book", book)
+                put("chapter", chapter)
+            }
         }
     }
 

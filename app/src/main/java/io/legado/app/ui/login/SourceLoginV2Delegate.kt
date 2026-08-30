@@ -12,6 +12,8 @@ import com.google.android.material.textfield.TextInputLayout
 import com.script.rhino.runScriptWithContext
 import io.legado.app.constant.AppLog
 import io.legado.app.data.entities.BaseSource
+import io.legado.app.data.entities.Book
+import io.legado.app.data.entities.BookChapter
 import io.legado.app.data.entities.rule.RowUi
 import io.legado.app.databinding.DialogLoginBinding
 import io.legado.app.databinding.ItemFilletTextBinding
@@ -39,6 +41,8 @@ class SourceLoginV2Delegate(
     private val fragment: SourceLoginDialog,
     private val binding: DialogLoginBinding,
     private val source: BaseSource,
+    private val book: Book?,
+    private val chapter: BookChapter?,
 ) {
 
     private var stateJson: String = "{}"
@@ -87,7 +91,7 @@ class SourceLoginV2Delegate(
             val result = withContext(IO) {
                 kotlin.runCatching {
                     runScriptWithContext {
-                        val rows = LoginUiV2.parseRender(source.evalLoginUiV2(stateJson))
+                        val rows = LoginUiV2.parseRender(source.evalLoginUiV2(stateJson, book, chapter))
                         rows to source.getLoginInfoMap()
                     }
                 }.onFailure { e ->
@@ -289,7 +293,7 @@ class SourceLoginV2Delegate(
                 val result = withContext(IO) {
                     kotlin.runCatching {
                         runScriptWithContext {
-                            source.evalLoginActionV2(action, stateJson, formJson)
+                            source.evalLoginActionV2(action, stateJson, formJson, book, chapter)
                         }
                     }.onFailure { e ->
                         ensureActive()

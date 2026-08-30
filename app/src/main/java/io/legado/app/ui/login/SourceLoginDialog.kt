@@ -57,7 +57,7 @@ class SourceLoginDialog : BaseDialogFragment(R.layout.dialog_login, true) {
         val source = viewModel.source ?: return
         binding.toolBar.title = getString(R.string.login_source, source.getTag())
         if (source.isLoginUiV2()) {
-            v2Delegate = SourceLoginV2Delegate(this, binding, source)
+            v2Delegate = SourceLoginV2Delegate(this, binding, source, viewModel.book, viewModel.chapter)
         } else {
             renderLoginUi(source, null)
         }
@@ -119,6 +119,8 @@ class SourceLoginDialog : BaseDialogFragment(R.layout.dialog_login, true) {
                     runScriptWithContext {
                         source.evalJS("$loginJS\n$buttonFunctionJS") {
                             put("result", getLoginData(loginUi))
+                            put("book", viewModel.book)
+                            put("chapter", viewModel.chapter)
                         }
                     }
                 }.onFailure { e ->
@@ -145,7 +147,8 @@ class SourceLoginDialog : BaseDialogFragment(R.layout.dialog_login, true) {
                 kotlin.runCatching {
                     runScriptWithContext {
                         // 首次渲染 prefills 传 null:已存登录信息也在 IO 线程读取解密
-                        (prefills ?: source.getLoginInfoMap()) to source.loginUi()
+                        (prefills ?: source.getLoginInfoMap()) to
+                            source.loginUi(viewModel.book, viewModel.chapter)
                     }
                 }.onFailure { e ->
                     ensureActive()
@@ -245,7 +248,7 @@ class SourceLoginDialog : BaseDialogFragment(R.layout.dialog_login, true) {
             } else if (source.putLoginInfo(GSON.toJson(loginData))) {
                 try {
                     runScriptWithContext {
-                        source.login()
+                        source.login(viewModel.book, viewModel.chapter)
                     }
                     context?.toastOnUi(R.string.success)
                     withContext(Main) {

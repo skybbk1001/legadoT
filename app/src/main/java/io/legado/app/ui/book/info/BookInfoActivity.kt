@@ -388,6 +388,7 @@ class BookInfoActivity :
                 startActivity<SourceLoginActivity> {
                     putExtra("type", "bookSource")
                     putExtra("key", it.bookSourceUrl)
+                    putExtra("bookUrl", viewModel.getBook(false)?.bookUrl)
                 }
             }
 

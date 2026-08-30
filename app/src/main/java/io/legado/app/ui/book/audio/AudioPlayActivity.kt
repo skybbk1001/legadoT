@@ -168,6 +168,8 @@ class AudioPlayActivity :
                 startActivity<SourceLoginActivity> {
                     putExtra("type", "bookSource")
                     putExtra("key", it.bookSourceUrl)
+                    putExtra("bookUrl", AudioPlay.book?.bookUrl)
+                    putExtra("durChapterIndex", AudioPlay.durChapterIndex)
                 }
             }
 
