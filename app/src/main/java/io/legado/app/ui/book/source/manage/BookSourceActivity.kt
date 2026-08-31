@@ -191,7 +191,7 @@ class BookSourceActivity : VMBaseActivity<ActivityBookSourceBinding, BookSourceV
             R.id.menu_group_manage -> showDialogFragment(GroupManageDialog(GroupManageDialog.Type.BookSource))
             R.id.menu_import_local -> importDoc.launch {
                 mode = HandleFileContract.FILE
-                allowExtensions = arrayOf("txt", "json")
+                allowExtensions = arrayOf("txt", "json", "js")
             }
 
             R.id.menu_import_onLine -> showImportDialog()
