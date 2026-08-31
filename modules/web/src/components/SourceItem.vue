@@ -8,14 +8,19 @@
       edit: sourceUrl == currentSourceUrl,
     }"
   >
-    {{ getSourceName(source) }}
-    <el-button text :icon="Edit" @click="handleSourceClick(source)" />
+    <span>{{ getSourceName(source) }}</span>
+    <span class="item-right">
+      <el-tag v-if="isJs" size="small" type="warning" disable-transitions
+        >JS</el-tag
+      >
+      <el-button text :icon="Edit" @click="handleSourceClick(source)" />
+    </span>
   </el-checkbox>
 </template>
 
 <script setup lang="ts">
 import { Edit } from '@element-plus/icons-vue'
-import { getSourceUniqueKey, getSourceName } from '@/utils/souce'
+import { getSourceUniqueKey, getSourceName, isJsBookSource } from '@/utils/souce'
 import type { Source } from '@/source'
 
 const props = defineProps<{
@@ -24,6 +29,7 @@ const props = defineProps<{
 
 const store = useSourceStore()
 
+const isJs = computed(() => isJsBookSource(props.source))
 const currentSourceUrl = computed(() => store.currentSourceUrl)
 const sourceUrl = computed(() => getSourceUniqueKey(props.source))
 
@@ -42,6 +48,11 @@ const isSaveError = computed(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+.item-right {
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 .error {
   border-color: var(--el-color-error) !important;

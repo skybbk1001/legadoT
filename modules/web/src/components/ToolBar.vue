@@ -71,11 +71,12 @@ import { CircleCheckFilled, Edit } from '@element-plus/icons-vue'
 import hotkeys from 'hotkeys-js'
 import {
   getSourceName,
+  getSourceUniqueKey,
   isInvaildSource,
   isJsBookSource,
   normalizeSource,
 } from '../utils/souce'
-import type { BookSoure } from '@/source'
+import type { BookSoure, Source } from '@/source'
 
 const isBookSourcePage = /bookSource/i.test(location.href)
 
@@ -105,8 +106,13 @@ const pull = () => {
     .finally(() => loadingMsg.close())
 }
 
-const push = () => {
-  const sources = store.sources
+/**
+ * 批量推送：JS 源逐条走 saveJsSource（脚本原文 + App 端 extract 校验/提取，
+ * 避免 JSON 路径绕过校验导致"新脚本+旧元数据"混合入库）；
+ * 声明式源维持 saveBookSources 批量端点。
+ */
+const push = async () => {
+  const sources = [...store.sources]
   store.changeTabName('editList')
   if (sources.length === 0) {
     return ElMessage({
@@ -118,30 +124,42 @@ const push = () => {
     message: '正在推送中',
     type: 'info',
   })
-  API.saveSources(sources).then(({ data }) => {
-    if (data.isSuccess) {
-      const okData = data.data
-      if (Array.isArray(okData)) {
-        let failMsg = ``
-        if (sources.length > okData.length) {
-          failMsg = '\n推送失败的源将用红色字体标注!'
-          store.setPushReturnSources(okData)
-        }
-        ElMessage({
-          message: `批量推送源到「阅读3.0APP」\n共计: ${
-            sources.length
-          } 条\n成功: ${okData.length} 条\n失败: ${
-            sources.length - okData.length
-          } 条${failMsg}`,
-          type: 'success',
-        })
-      }
+  const jsSources = sources.filter(isJsBookSource)
+  const declarativeSources = sources.filter(s => !isJsBookSource(s))
+  const okSources: Source[] = []
+  let failCount = 0
+
+  if (declarativeSources.length > 0) {
+    const { data } = await API.saveSources(declarativeSources)
+    if (data.isSuccess && Array.isArray(data.data)) {
+      okSources.push(...data.data)
+      failCount += declarativeSources.length - data.data.length
     } else {
-      ElMessage({
-        message: `批量推送源失败!\nErrorMsg: ${data.errorMsg}`,
-        type: 'error',
-      })
+      failCount += declarativeSources.length
     }
+  }
+
+  for (const source of jsSources) {
+    try {
+      const { data } = await API.saveJsSource(source.mainJs!)
+      if (data.isSuccess) {
+        okSources.push(data.data)
+        // extract 后元数据/URL 可能变化，用提取结果替换列表项
+        store.updateSource(getSourceUniqueKey(source), data.data)
+      } else {
+        failCount++
+      }
+    } catch {
+      failCount++
+    }
+  }
+
+  if (failCount > 0) {
+    store.setPushReturnSources(okSources)
+  }
+  ElMessage({
+    message: `批量推送源到「阅读3.0APP」\n共计: ${sources.length} 条\n成功: ${okSources.length} 条\n失败: ${failCount} 条${failCount > 0 ? '\n推送失败的源将用红色字体标注!' : ''}`,
+    type: failCount > 0 ? 'warning' : 'success',
   })
 }
 
@@ -166,12 +184,7 @@ const clearEdit = () => {
 }
 
 const redo = () => {
-  store.clearEdit()
-  store.clearAllHistory()
-  ElMessage({
-    message: '已清除所有历史记录',
-    type: 'success',
-  })
+  store.editHistoryRedo()
 }
 
 const saveSource = () => {
@@ -236,20 +249,9 @@ const debug = () => {
   store.startDebug()
 }
 
-/** 新建 JS 源：载入模板进入脚本编辑（模板与 App 端同源，构建期同步） */
-const newJsSource = async () => {
-  try {
-    await store.createJsSource()
-    ElMessage({
-      message: '已载入 JS 源模板，编辑后点 ✓保存源 存入 App',
-      type: 'success',
-    })
-  } catch (e) {
-    ElMessage({
-      message: (e as Error).message || 'JS 源模板加载失败',
-      type: 'error',
-    })
-  }
+/** 返回新建入口页（新建书源/新建 JS 源 二选一） */
+const backToEntry = () => {
+  store.clearEdit()
 }
 
 interface ToolButton {
@@ -272,7 +274,7 @@ const buttons = ref<ToolButton[]>(
     { name: '⇏调试源', hotKeys: [], action: debug },
     { name: '✓保存源', hotKeys: [], action: saveSource },
     // 追加在末尾：不影响 localStorage 里既有快捷键的位序映射
-    { name: '＋新建JS源', hotKeys: [], action: newJsSource, bookSourceOnly: true },
+    { name: '＋新建源', hotKeys: [], action: backToEntry, bookSourceOnly: true },
   ),
 )
 const hotkeysDialogVisible = ref(true)
@@ -358,7 +360,7 @@ function readHotkeysConfig() {
     if (localStorageConfig === null) return false
     const config = JSON.parse(localStorageConfig)
     if (!Array.isArray(config) || config.length == 0) return false
-    // 按钮集可能新增（如 ＋新建JS源），旧配置长度不足时补空数组
+    // 按钮集可能新增（如 ＋新建源），旧配置长度不足时补空数组
     buttons.value.forEach(
       (button, index) => (button.hotKeys = config[index] ?? []),
     )
