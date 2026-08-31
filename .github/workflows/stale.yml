@@ -15,7 +15,7 @@ jobs:
   stale:
 
     runs-on: ubuntu-latest
-    if: ${{ github.repository == 'gedoor/legado' }}
+    if: ${{ github.repository == 'skybbk1001/legadoT' }}
     permissions:
       issues: write
 
@@ -26,4 +26,7 @@ jobs:
         stale-issue-message: '由于长期没有状态更新，该问题将于5天后自动关闭。如有需要可重新打开。'
         days-before-stale: 30
         days-before-close: 5
+        days-before-pr-stale: -1
+        days-before-pr-close: -1
+        exempt-issue-labels: 'bug'
         operations-per-run: 100
