@@ -1,6 +1,10 @@
 package io.legado.app.ui.book.toc
 
 import android.content.Context
+import android.content.res.ColorStateList
+import android.graphics.drawable.ColorDrawable
+import android.graphics.drawable.Drawable
+import android.graphics.drawable.RippleDrawable
 import android.os.Handler
 import android.os.Looper
 import android.view.ViewGroup
@@ -17,7 +21,6 @@ import io.legado.app.help.config.AppConfig
 import io.legado.app.help.coroutine.Coroutine
 import io.legado.app.lib.theme.ThemeUtils
 import io.legado.app.lib.theme.accentColor
-import io.legado.app.utils.dpToPx
 import io.legado.app.utils.getCompatColor
 import io.legado.app.utils.gone
 import io.legado.app.utils.longToastOnUi
@@ -52,7 +55,8 @@ class ChapterListAdapter(context: Context, val callback: Callback) :
                                 oldItem.chapterCount == newItem.chapterCount &&
                                 oldItem.matchedCount == newItem.matchedCount &&
                                 oldItem.matchedSelf == newItem.matchedSelf &&
-                                oldItem.containsDurChapter == newItem.containsDurChapter
+                                oldItem.containsDurChapter == newItem.containsDurChapter &&
+                                oldItem.toggleable == newItem.toggleable
 
                     oldItem is TocListItem.Chapter && newItem is TocListItem.Chapter ->
                         oldItem.parentVolumeIndex == newItem.parentVolumeIndex
@@ -154,17 +158,22 @@ class ChapterListAdapter(context: Context, val callback: Callback) :
             // (此处每次绑定重写 start,XML 值会被覆盖,基准必须与之同源);depth 为分卷缩进
             tvChapterItem.updatePaddingRelative(
                 start = context.resources.getDimensionPixelSize(R.dimen.space_l) +
-                    (item.depth * 10).dpToPx()
+                    item.depth * context.resources.getDimensionPixelSize(R.dimen.toc_volume_indent)
             )
             if (payloads.isEmpty()) {
-                if (isDur) {
+                // 当前卷高亮:卷头 containsDurChapter(或 dur 恰为卷章)时着色,提供"你在哪一卷"的定位线索
+                val highlight = isDur ||
+                        (item is TocListItem.Volume && item.containsDurChapter)
+                if (highlight) {
                     tvChapterName.setTextColor(context.accentColor)
                 } else {
                     tvChapterName.setTextColor(context.getCompatColor(R.color.primaryText))
                 }
                 tvChapterName.text = getDisplayTitle(chapter)
                 if (isVolume) {
-                    tvChapterItem.setBackgroundColor(context.getCompatColor(R.color.btn_bg_press))
+                    // 卷头是高频点击目标(展开/折叠),给底色之上叠一层 ripple 提供按压反馈;
+                    // 纯 setBackgroundColor 会被后续 ripple 替换,故这里直接构建 RippleDrawable
+                    tvChapterItem.background = volumeBackground()
                 } else {
                     tvChapterItem.background =
                         ThemeUtils.resolveDrawable(context, android.R.attr.selectableItemBackground)
@@ -200,7 +209,7 @@ class ChapterListAdapter(context: Context, val callback: Callback) :
                 tvChapterName.text = getDisplayTitle(chapter)
                 upHasCache(binding, isDur, cached)
             }
-            if (item is TocListItem.Volume) {
+            if (item is TocListItem.Volume && item.toggleable) {
                 ivVolumeArrow.visible()
                 ivVolumeArrow.setImageResource(
                     if (item.collapsed) R.drawable.ic_arrow_right else R.drawable.ic_expand_more
@@ -209,6 +218,16 @@ class ChapterListAdapter(context: Context, val callback: Callback) :
                 ivVolumeArrow.gone()
             }
         }
+    }
+
+    private fun volumeBackground(): Drawable {
+        val base = ColorDrawable(context.getCompatColor(R.color.btn_bg_press))
+        val highlight = ThemeUtils.resolveColor(
+            context,
+            android.R.attr.colorControlHighlight,
+            context.getCompatColor(R.color.btn_bg_press_2)
+        )
+        return RippleDrawable(ColorStateList.valueOf(highlight), base, null)
     }
 
     private fun volumeSummary(item: TocListItem.Volume): String {

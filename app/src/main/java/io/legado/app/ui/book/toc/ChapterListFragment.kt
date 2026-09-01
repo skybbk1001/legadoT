@@ -50,6 +50,7 @@ class ChapterListFragment : VMBaseFragment<TocViewModel>(R.layout.fragment_chapt
     private var audioCacheStateReady = false
     private val pendingAudioCacheChanges = linkedMapOf<Int, Boolean>()
     private var initBookJob: Job? = null
+    private var upListJob: Job? = null
     private var currentSearchKey: String? = null
     private var pendingScrollItemKey: String? = null
 
@@ -110,6 +111,7 @@ class ChapterListFragment : VMBaseFragment<TocViewModel>(R.layout.fragment_chapt
     @SuppressLint("SetTextI18n")
     private fun initBook(book: Book) {
         initBookJob?.cancel()
+        upListJob?.cancel()
         initBookJob = lifecycleScope.launch {
             durChapterIndex = book.durChapterIndex
             binding.tvCurrentChapterInfo.text =
@@ -124,10 +126,15 @@ class ChapterListFragment : VMBaseFragment<TocViewModel>(R.layout.fragment_chapt
             tocListState.setFullChapters(
                 chapters = chapters,
                 durChapterIndex = durChapterIndex,
-                resetCollapse = true
+                resetCollapse = true,
+                reversed = book.getReverseToc()
             )
-            currentSearchKey = null
-            adapter.setItems(tocListState.showNormal(durChapterIndex))
+            // initBook 与搜索键入并发时,若搜索已接管列表则不回退到全量列表、不清搜索词
+            // (缓存状态刷新在下方照常执行,不依赖此处;搜索路径晚到的 setItems 会正常落地)
+            if (currentSearchKey.isNullOrBlank()) {
+                currentSearchKey = null
+                adapter.setItems(tocListState.showNormal(durChapterIndex))
+            }
 
             val (cacheFileNames, cachedChapterIndexes) = queryCacheState(book)
             adapter.cacheFileNames.addAll(cacheFileNames)
@@ -179,14 +186,18 @@ class ChapterListFragment : VMBaseFragment<TocViewModel>(R.layout.fragment_chapt
     }
 
     override fun upChapterList(searchKey: String?, resetCollapse: Boolean) {
-        lifecycleScope.launch {
+        // 搜索键入是高频触发,取消上一个未完成的 DB 查询,避免乱序返回时旧结果覆盖新结果
+        upListJob?.cancel()
+        upListJob = lifecycleScope.launch {
             currentSearchKey = searchKey
+            val reversed = book?.getReverseToc() == true
             if (searchKey.isNullOrBlank()) {
                 val chapters = queryChapterList(null)
                 tocListState.setFullChapters(
                     chapters = chapters,
                     durChapterIndex = durChapterIndex,
-                    resetCollapse = resetCollapse
+                    resetCollapse = resetCollapse,
+                    reversed = reversed
                 )
                 adapter.setItems(tocListState.showNormal(durChapterIndex))
             } else {
@@ -194,7 +205,8 @@ class ChapterListFragment : VMBaseFragment<TocViewModel>(R.layout.fragment_chapt
                     tocListState.setFullChapters(
                         chapters = queryChapterList(null),
                         durChapterIndex = durChapterIndex,
-                        resetCollapse = resetCollapse
+                        resetCollapse = resetCollapse,
+                        reversed = reversed
                     )
                 }
                 adapter.setItems(tocListState.showSearch(queryChapterList(searchKey), durChapterIndex))
@@ -219,7 +231,9 @@ class ChapterListFragment : VMBaseFragment<TocViewModel>(R.layout.fragment_chapt
     private fun notifyVisibleChapterChanged(chapterIndex: Int) {
         val position = adapter.findVisiblePositionByChapterIndex(chapterIndex)
         if (position >= 0) {
-            adapter.notifyItemChanged(position, true)
+            // position 是 items 下标,经 updateItems 统一补 header 偏移
+            // (本页无 header 偏移为 0;BookInfoActivity 复用适配器时带 2 个 header)
+            adapter.updateItems(position, position, true)
         }
     }
 
@@ -262,6 +276,9 @@ class ChapterListFragment : VMBaseFragment<TocViewModel>(R.layout.fragment_chapt
             ?.let { adapter.getItem(it)?.key }
         if (tocListState.toggleVolume(volumeIndex)) {
             adapter.setItems(tocListState.showNormal(durChapterIndex))
+        } else {
+            // 状态未变不会有 onItemsUpdated 兜底,回滚锚点防止泄漏到后续列表更新
+            pendingScrollItemKey = null
         }
     }
 

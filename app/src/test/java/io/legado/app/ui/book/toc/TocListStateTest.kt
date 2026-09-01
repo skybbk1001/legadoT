@@ -84,6 +84,62 @@ class TocListStateTest {
     }
 
     @Test
+    fun `reversed toc groups chapters preceding their volume`() {
+        val state = TocListState()
+        // 原序: V1(0), c1(1), c2(2), V2(3), c3(4), c4(5)
+        // reverseToc 重写 index 后 DB 顺序: c4(0), c3(1), V2(2), c2(3), c1(4), V1(5)
+        val reversed = listOf(
+            chapter(0, "第4章"), chapter(1, "第3章"), volume(2, "第二卷"),
+            chapter(3, "第2章"), chapter(4, "第1章"), volume(5, "第一卷")
+        )
+        state.setFullChapters(reversed, durChapterIndex = 0, resetCollapse = true, reversed = true)
+
+        // dur=第4章(属于第二卷):默认只展开第二卷,卷头置于组首,组间/组内保持"最新在前"
+        val items = state.showNormal(durChapterIndex = 0)
+
+        assertEquals(listOf("volume:2", "chapter:0", "chapter:1", "volume:5"), items.map { it.key })
+        assertEquals(2, (items[0] as TocListItem.Volume).chapterCount)
+        assertEquals(2, (items[3] as TocListItem.Volume).chapterCount)
+        assertEquals(2, state.parentVolumeIndexOf(0))
+        assertEquals(5, state.parentVolumeIndexOf(3))
+    }
+
+    @Test
+    fun `reversed toc expand and fallback use corrected parent map`() {
+        val state = TocListState()
+        val reversed = listOf(
+            chapter(0, "第4章"), chapter(1, "第3章"), volume(2, "第二卷"),
+            chapter(3, "第2章"), chapter(4, "第1章"), volume(5, "第一卷")
+        )
+        state.setFullChapters(reversed, durChapterIndex = 0, resetCollapse = true, reversed = true)
+        state.showNormal(durChapterIndex = 0)
+        assertTrue(state.isVolumeCollapsed(5))
+
+        assertTrue(state.expandVolumeContainingChapter(3))
+        state.showNormal(durChapterIndex = 0)
+
+        assertEquals(4, state.findVisiblePositionByChapterIndex(3))
+    }
+
+    @Test
+    fun `search volume rows are not toggleable but normal ones are`() {
+        val state = TocListState()
+        state.setFullChapters(
+            listOf(volume(0, "第一卷"), chapter(1), volume(2, "第二卷"), chapter(3)),
+            durChapterIndex = 1,
+            resetCollapse = true
+        )
+        state.showNormal(durChapterIndex = 1)
+
+        val normalVolume = state.visibleItems.first() as TocListItem.Volume
+        assertTrue(normalVolume.toggleable)
+
+        val searchItems = state.showSearch(listOf(chapter(3)), durChapterIndex = 1)
+        val searchVolume = searchItems.first() as TocListItem.Volume
+        assertFalse(searchVolume.toggleable)
+    }
+
+    @Test
     fun `search inserts parent volume context without changing collapse state`() {
         val state = TocListState()
         val all = listOf(volume(0, "第一卷"), chapter(1), chapter(2), volume(3, "第二卷"), chapter(4), chapter(5))

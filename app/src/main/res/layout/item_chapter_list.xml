@@ -30,7 +30,7 @@
         android:src="@drawable/ic_arrow_down"
         android:visibility="gone"
         app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintEnd_toStartOf="@id/iv_checked"
         app:layout_constraintTop_toTopOf="parent"
         app:skin_tint="onSurfaceVariant"
         app:tint="@color/secondaryText"
@@ -40,10 +40,11 @@
         android:id="@+id/tv_chapter_name"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
+        android:ellipsize="end"
         android:singleLine="true"
         app:layout_constraintBottom_toTopOf="@id/barrier"
         app:layout_constraintLeft_toRightOf="@+id/iv_locked"
-        app:layout_constraintRight_toLeftOf="@+id/iv_checked"
+        app:layout_constraintRight_toLeftOf="@+id/iv_volume_arrow"
         app:layout_constraintTop_toTopOf="parent" />
 
     <androidx.constraintlayout.widget.Barrier
@@ -70,12 +71,13 @@
         android:id="@+id/tv_tag"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
+        android:ellipsize="end"
         android:singleLine="true"
         android:textSize="@dimen/text_caption"
         android:visibility="gone"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintLeft_toRightOf="@id/tv_word_count"
-        app:layout_constraintRight_toLeftOf="@+id/iv_checked"
+        app:layout_constraintRight_toLeftOf="@+id/iv_volume_arrow"
         app:layout_constraintTop_toBottomOf="@+id/barrier" />
 
     <ImageView

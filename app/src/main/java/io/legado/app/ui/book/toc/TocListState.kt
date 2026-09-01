@@ -10,6 +10,7 @@ class TocListState {
     )
 
     private var fullChapters: List<BookChapter> = emptyList()
+    private var reversedToc = false
     private var groups: List<VolumeGroup> = emptyList()
     private var parentVolumeByChapterIndex: Map<Int, Int> = emptyMap()
     private var volumeGroupByIndex: Map<Int, VolumeGroup> = emptyMap()
@@ -24,9 +25,11 @@ class TocListState {
     fun setFullChapters(
         chapters: List<BookChapter>,
         durChapterIndex: Int,
-        resetCollapse: Boolean = false
+        resetCollapse: Boolean = false,
+        reversed: Boolean = false
     ) {
         fullChapters = chapters
+        reversedToc = reversed
         groups = buildGroups(chapters)
         rebuildIndexes()
         val currentVolumeIndexes = groups.mapNotNull { it.volume?.index }.toSet()
@@ -102,6 +105,7 @@ class TocListState {
                     depth = 0,
                     collapsed = false,
                     chapterCount = group.chapters.size,
+                    toggleable = false,
                     matchedCount = childMatchCountByParent[volumeIndex] ?: 0,
                     matchedSelf = matchedVolumeIndexes.contains(volumeIndex),
                     containsDurChapter = volume.index == durChapterIndex ||
@@ -143,9 +147,7 @@ class TocListState {
     }
 
     fun expandVolumeContainingChapter(chapterIndex: Int): Boolean {
-        val volumeIndex = parentVolumeByChapterIndex[chapterIndex]
-            ?: fullChapters.firstOrNull { it.index == chapterIndex && it.isVolume }?.index
-            ?: return false
+        val volumeIndex = volumeIndexContaining(chapterIndex) ?: return false
         return collapsedVolumeIndexes.remove(volumeIndex)
     }
 
@@ -184,25 +186,39 @@ class TocListState {
 
     private fun buildGroups(chapters: List<BookChapter>): List<VolumeGroup> {
         val result = mutableListOf<VolumeGroup>()
-        var currentVolume: BookChapter? = null
         var currentChapters = mutableListOf<BookChapter>()
 
-        fun flush() {
-            if (currentVolume != null || currentChapters.isNotEmpty()) {
-                result.add(VolumeGroup(currentVolume, currentChapters.toList()))
+        fun flush(volume: BookChapter?) {
+            if (volume != null || currentChapters.isNotEmpty()) {
+                result.add(VolumeGroup(volume, currentChapters.toList()))
             }
+            currentChapters = mutableListOf()
         }
 
-        chapters.forEach { chapter ->
-            if (chapter.isVolume) {
-                flush()
-                currentVolume = chapter
-                currentChapters = mutableListOf()
-            } else {
-                currentChapters.add(chapter)
+        if (reversedToc) {
+            // 倒序目录(reverseToc 重写 DB index 后)显示顺序为"章在前、卷在后":
+            // 原属某卷的章节会排在卷之前,卷收纳显示顺序中位于其之前的章节才正确。
+            // 展示时卷头仍置于组首,组间/组内都保持"最新在前"。
+            chapters.forEach { chapter ->
+                if (chapter.isVolume) {
+                    flush(chapter)
+                } else {
+                    currentChapters.add(chapter)
+                }
             }
+            flush(null)
+        } else {
+            var currentVolume: BookChapter? = null
+            chapters.forEach { chapter ->
+                if (chapter.isVolume) {
+                    flush(currentVolume)
+                    currentVolume = chapter
+                } else {
+                    currentChapters.add(chapter)
+                }
+            }
+            flush(currentVolume)
         }
-        flush()
         return result
     }
 
@@ -224,12 +240,17 @@ class TocListState {
 
     private fun resetDefaultCollapse(durChapterIndex: Int) {
         collapsedVolumeIndexes.clear()
-        val currentVolumeIndex = parentVolumeByChapterIndex[durChapterIndex]
-            ?: fullChapters.firstOrNull { it.index == durChapterIndex && it.isVolume }?.index
+        val currentVolumeIndex = volumeIndexContaining(durChapterIndex)
         groups.mapNotNull { it.volume?.index }.forEach { volumeIndex ->
             if (volumeIndex != currentVolumeIndex) {
                 collapsedVolumeIndexes.add(volumeIndex)
             }
         }
+    }
+
+    // O(1):dur 章节所在卷;dur 本身是卷章时返回该卷自身
+    private fun volumeIndexContaining(chapterIndex: Int): Int? {
+        return parentVolumeByChapterIndex[chapterIndex]
+            ?: chapterIndex.takeIf { volumeGroupByIndex.containsKey(it) }
     }
 }

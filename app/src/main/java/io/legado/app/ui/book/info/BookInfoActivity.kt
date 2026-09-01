@@ -196,7 +196,11 @@ class BookInfoActivity :
         }
 
         override fun durChapterIndex() = viewModel.getBook(false)?.durChapterIndex ?: 0
-        override fun onListChanged() {}
+        override fun onListChanged() {
+            // 接通标题替换规则(AppConfig.tocUiUseReplace),此前详情页目录从不生效;
+            // 经由外部类方法中转,避免回调对象直接引用 chapterAdapter 造成循环类型推断
+            refreshTocDisplayTitles()
+        }
         override fun onVolumeToggled(volumeIndex: Int) {}
         override fun onItemsUpdated() {}
     }
@@ -801,8 +805,10 @@ class BookInfoActivity :
     }
 
     /**
-     * 详情页内嵌完整目录(RecyclerView + ChapterListAdapter),FLAT 喂入
-     * (无 TocListState 分卷分组,保持"倒序即最新在前"的干净反转——N3a 计划最大偏差点)。
+     * 详情页内嵌完整目录(RecyclerView + ChapterListAdapter)。
+     * 卷章原位渲染为分组头(不可折叠、无箭头):正序时卷头在组首,倒序时落在组尾,
+     * 均不打乱"倒序即最新在前"的干净反转——完整分卷折叠交互仍由目录页(TocListState)承载。
+     * 标题替换规则经 upDisplayTitles(列表落地后触发)同样在此生效,与目录页同源。
      */
     private fun upChapterList(chapters: List<BookChapter>) {
         fullChapters = chapters
@@ -811,7 +817,7 @@ class BookInfoActivity :
 
     private fun submitTocItems(reordered: Boolean = false) {
         val ordered = if (tocReversed) fullChapters.asReversed() else fullChapters
-        val items = ordered.map { TocListItem.Chapter(chapter = it, depth = 0) }
+        val items = buildDetailTocItems(ordered)
         // 倒序切换=整表重排,走无 diff 快路径(千章级 Myers diff 要数秒);
         // 目录刷新(upChapterList)仍走 diff,保滚动位置与最小重绑
         if (reordered) {
@@ -820,6 +826,47 @@ class BookInfoActivity :
             chapterAdapter.setItems(items)
         }
         upTocHeader()
+    }
+
+    /** 内嵌目录标题替换:从列表头开始全量回填(已缓存的标题会被跳过,重复触发开销极小) */
+    private fun refreshTocDisplayTitles() {
+        chapterAdapter.upDisplayTitles(0)
+    }
+
+    /** 卷头行数据:章节数/是否含当前阅读章按 DB 正序归组计算,行的先后仍由显示顺序决定 */
+    private fun buildDetailTocItems(ordered: List<BookChapter>): List<TocListItem> {
+        val durIndex = viewModel.getBook(false)?.durChapterIndex ?: -1
+        val chapterCountByVolume = HashMap<Int, Int>()
+        var currentVolumeIndex: Int? = null
+        var durVolumeIndex: Int? = null
+        fullChapters.forEach { chapter ->
+            if (chapter.isVolume) {
+                currentVolumeIndex = chapter.index
+                chapterCountByVolume[chapter.index] = 0
+            } else {
+                currentVolumeIndex?.let {
+                    chapterCountByVolume[it] = (chapterCountByVolume[it] ?: 0) + 1
+                }
+            }
+            if (chapter.index == durIndex) {
+                durVolumeIndex = if (chapter.isVolume) chapter.index else currentVolumeIndex
+            }
+        }
+        return ordered.map { chapter ->
+            if (chapter.isVolume) {
+                TocListItem.Volume(
+                    chapter = chapter,
+                    depth = 0,
+                    collapsed = false,
+                    chapterCount = chapterCountByVolume[chapter.index] ?: 0,
+                    containsDurChapter = chapter.index == durIndex ||
+                            chapter.index == durVolumeIndex,
+                    toggleable = false
+                )
+            } else {
+                TocListItem.Chapter(chapter = chapter, depth = 0)
+            }
+        }
     }
 
     private fun toggleTocOrder() {

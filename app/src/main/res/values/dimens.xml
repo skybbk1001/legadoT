@@ -45,6 +45,9 @@
     <dimen name="space_l">16dp</dimen>
     <dimen name="space_xl">24dp</dimen>
 
+    <!-- 目录分卷:子章节相对卷头的额外缩进(ChapterListAdapter 按 depth 递增使用) -->
+    <dimen name="toc_volume_indent">10dp</dimen>
+
     <!-- 圆角层级(对齐 M3 Expressive 五档:XS4/S8/M12/L20/XL32;full=胶囊;小体量控件不动,大体量容器放大以强化层级) -->
     <dimen name="radius_xs">4dp</dimen>
     <dimen name="radius_s">8dp</dimen>
