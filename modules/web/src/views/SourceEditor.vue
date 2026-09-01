@@ -14,7 +14,6 @@ import '@/assets/sourceeditor.css'
 import { useDark } from '@vueuse/core'
 import type { SourceConfig } from '@/config/sourceConfig'
 import { useSourceStore } from '@/store'
-import { isJsBookSource } from '@utils/souce'
 
 useDark()
 
@@ -34,10 +33,8 @@ if (isBookSourcePage) {
 /** 书源页未进入编辑时显示新建入口；订阅源页保持原表单 */
 const showEntry = computed(() => isBookSourcePage && !store.editing)
 
-/** 当前编辑源带 mainJs 即按 JS 源展示脚本编辑器（订阅源页永不命中） */
-const isJsSource = computed(
-  () => isBookSourcePage && isJsBookSource(store.currentSource),
-)
+/** 本次编辑会话按进入时是否 JS 源定格：编辑中清空脚本不应切回声明式表单 */
+const isJsSource = computed(() => isBookSourcePage && store.editingJsSource)
 </script>
 <style lang="scss" scoped>
 .editor {

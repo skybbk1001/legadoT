@@ -5,6 +5,7 @@ import {
   getSourceUniqueKey,
   convertSourcesToMap,
   fetchJsSourceTemplate,
+  isJsBookSource,
 } from '@utils/souce'
 import type { BookSoure, RssSource, Source } from '@/source'
 
@@ -19,6 +20,7 @@ export const useSourceStore = defineStore('source', {
       savedSources: [] as Source[], // 批量保存到阅读app成功的源
       currentSource: JSON.parse(JSON.stringify(emptySource)) as Source, // 当前编辑的源
       editing: false, // 是否已进入编辑界面（false 时书源页左侧显示新建入口）
+      editingJsSource: false, // 本次编辑会话是否为 JS 源（进入编辑时定格，脚本清空不再回落表单）
       currentTab: localStorage.getItem('tabName') || 'editTab',
       editTabSource: {} as Source, // 生成序列化的json数据
       isDebuging: false,
@@ -97,6 +99,7 @@ export const useSourceStore = defineStore('source', {
     // 更改当前编辑的源qq
     changeCurrentSource(source: Source) {
       this.editing = true
+      this.editingJsSource = isJsBookSource(source)
       this.editHistory(this.currentSource) // 记录被替换的状态供撤销
       this.currentSource = JSON.parse(JSON.stringify(source))
     },
@@ -149,6 +152,7 @@ export const useSourceStore = defineStore('source', {
         if (historyObj.new.length) {
           this.currentSource = historyObj.new.pop()
           this.editing = true
+          this.editingJsSource = isJsBookSource(this.currentSource)
         }
         localStorage.setItem('history', JSON.stringify(historyObj))
       }
@@ -160,6 +164,7 @@ export const useSourceStore = defineStore('source', {
         if (historyObj.old.length) {
           this.currentSource = historyObj.old.pop()
           this.editing = true
+          this.editingJsSource = isJsBookSource(this.currentSource)
         }
         localStorage.setItem('history', JSON.stringify(historyObj))
       }
@@ -171,6 +176,7 @@ export const useSourceStore = defineStore('source', {
       this.editTabSource = {} as Source
       this.currentSource = JSON.parse(JSON.stringify(emptySource)) //复制一份新对象
       this.editing = false // 返回新建入口
+      this.editingJsSource = false
     },
 
     // clear all source

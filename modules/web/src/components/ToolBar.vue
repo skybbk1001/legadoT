@@ -189,8 +189,9 @@ const redo = () => {
 
 const saveSource = () => {
   const source = store.currentSource
-  if (isJsBookSource(source)) {
-    return saveJsSource(source)
+  // 按编辑会话类型分流：脚本被清空时仍走 JS 路径报错，而非落入声明式校验
+  if (store.editingJsSource || isJsBookSource(source)) {
+    return saveJsSource(source as BookSoure)
   }
   if (isInvaildSource(source)) {
     normalizeSource(source)
@@ -220,7 +221,7 @@ const saveSource = () => {
 
 /** JS 源保存：提交脚本原文，用 App 提取结果回填（脚本改名/改地址也能反映） */
 const saveJsSource = (source: BookSoure) => {
-  const js = source.mainJs!
+  const js = source.mainJs ?? ''
   const oldUrl = source.bookSourceUrl
   API.saveJsSource(js).then(({ data }) => {
     if (data.isSuccess) {
