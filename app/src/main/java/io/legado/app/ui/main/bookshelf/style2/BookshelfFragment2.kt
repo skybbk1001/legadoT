@@ -34,7 +34,6 @@ import io.legado.app.utils.observeEvent
 import io.legado.app.utils.setEdgeEffectColor
 import io.legado.app.utils.showDialogFragment
 import io.legado.app.utils.startActivityForBook
-import io.legado.app.utils.startBookInfoTransition
 import io.legado.app.utils.viewbindingdelegate.viewBinding
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -236,7 +235,7 @@ class BookshelfFragment2() : BaseBookshelfFragment(R.layout.fragment_bookshelf2)
                 val intent = Intent(requireContext(), BookInfoActivity::class.java)
                     .putExtra("name", item.name)
                     .putExtra("author", item.author)
-                requireActivity().startBookInfoTransition(intent, cover)
+                startActivity(intent)
             }
 
             is BookGroup -> showDialogFragment(GroupEditDialog(item))

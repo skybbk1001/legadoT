@@ -51,7 +51,6 @@ import io.legado.app.utils.putPrefBoolean
 import io.legado.app.utils.setEdgeEffectColor
 import io.legado.app.utils.showDialogFragment
 import io.legado.app.utils.startActivity
-import io.legado.app.utils.startBookInfoTransition
 import io.legado.app.utils.transaction
 import io.legado.app.utils.viewbindingdelegate.viewBinding
 import io.legado.app.utils.visible
@@ -479,12 +478,25 @@ class SearchActivity : VMBaseActivity<ActivityBookSearchBinding, SearchViewModel
     /**
      * 显示书籍详情
      */
-    override fun showBookInfo(name: String, author: String, bookUrl: String, cover: View?) {
+    override fun showBookInfo(
+        name: String,
+        author: String,
+        bookUrl: String,
+        cover: View?,
+        coverUrl: String?,
+        origin: String?
+    ) {
         val intent = Intent(this, BookInfoActivity::class.java)
             .putExtra("name", name)
             .putExtra("author", author)
             .putExtra("bookUrl", bookUrl)
-        startBookInfoTransition(intent, cover)
+        // 封面URL随 intent 捎带:详情页据此 eager 预载(见 BookInfoActivity onActivityCreated),
+        // 首屏即列表同款封面,不等书籍详情的网络返回
+        if (!coverUrl.isNullOrEmpty()) {
+            intent.putExtra("coverUrl", coverUrl)
+            origin?.let { intent.putExtra("coverSourceOrigin", it) }
+        }
+        startActivity(intent)
     }
 
     /**

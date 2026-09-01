@@ -62,7 +62,6 @@ class SearchAdapter(context: Context, val callBack: CallBack) :
         item: SearchBook,
         payloads: MutableList<Any>
     ) {
-        binding.ivCover.transitionName = "book_cover_" + item.name + item.author
         if (payloads.isEmpty()) {
             bind(binding, item)
         } else {
@@ -76,7 +75,10 @@ class SearchAdapter(context: Context, val callBack: CallBack) :
     override fun registerListener(holder: ItemViewHolder, binding: ItemSearchBinding) {
         binding.root.setOnClickListener {
             getItem(holder.layoutPosition)?.let {
-                callBack.showBookInfo(it.name, it.author, it.bookUrl, binding.ivCover)
+                callBack.showBookInfo(
+                    it.name, it.author, it.bookUrl, binding.ivCover,
+                    it.coverUrl, it.origin
+                )
             }
         }
     }
@@ -117,7 +119,16 @@ class SearchAdapter(context: Context, val callBack: CallBack) :
 
         /**
          * 显示书籍详情
+         * coverUrl/origin 供详情页 eager 预载封面(通常命中 Glide 内存缓存),
+         * 转场以正确位图起飞,不等书籍详情的网络请求
          */
-        fun showBookInfo(name: String, author: String, bookUrl: String, cover: View? = null)
+        fun showBookInfo(
+            name: String,
+            author: String,
+            bookUrl: String,
+            cover: View? = null,
+            coverUrl: String? = null,
+            origin: String? = null
+        )
     }
 }

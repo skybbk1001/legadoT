@@ -2,7 +2,6 @@ package io.legado.app.utils
 
 import android.annotation.SuppressLint
 import android.app.Activity
-import android.content.Intent
 import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
@@ -17,13 +16,11 @@ import android.view.WindowMetrics
 import android.widget.FrameLayout
 import androidx.annotation.ColorInt
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.app.ActivityOptionsCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
 import androidx.fragment.app.DialogFragment
 import io.legado.app.R
-import io.legado.app.help.motion.MotionTokens
 import io.legado.app.ui.widget.dialog.TextDialog
 
 inline fun <reified T : DialogFragment> AppCompatActivity.showDialogFragment(
@@ -258,19 +255,4 @@ val Activity.navigationBarGravity: Int
 fun AppCompatActivity.showHelp(fileName: String) {
     val mdText = String(assets.open("web/help/md/${fileName}.md").readBytes())
     showDialogFragment(TextDialog(getString(R.string.help), mdText, TextDialog.Mode.MD, showToc = true))
-}
-
-/**
- * 书籍详情页容器变换发射：有封面且动效开启（且 transitionName 有效）时走场景转场，否则裸跳转。
- * 供书架 style1/style2、搜索页三处发射块共用（N5 Wave C 收敛）。
- */
-fun Activity.startBookInfoTransition(intent: Intent, cover: View?) {
-    if (cover != null && MotionTokens.enabled && cover.transitionName != null) {
-        val options = ActivityOptionsCompat.makeSceneTransitionAnimation(
-            this, cover, cover.transitionName!!
-        )
-        startActivity(intent, options.toBundle())
-    } else {
-        startActivity(intent)
-    }
 }

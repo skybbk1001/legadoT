@@ -35,7 +35,6 @@ import io.legado.app.utils.flowWithLifecycleAndDatabaseChangeFirst
 import io.legado.app.utils.observeEvent
 import io.legado.app.utils.setEdgeEffectColor
 import io.legado.app.utils.startActivityForBook
-import io.legado.app.utils.startBookInfoTransition
 import io.legado.app.utils.viewbindingdelegate.viewBinding
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -255,7 +254,7 @@ class BooksFragment() : BaseFragment(R.layout.fragment_books),
         val intent = Intent(requireContext(), BookInfoActivity::class.java)
             .putExtra("name", book.name)
             .putExtra("author", book.author)
-        requireActivity().startBookInfoTransition(intent, cover)
+        startActivity(intent)
     }
 
     override fun isUpdate(bookUrl: String): Boolean {

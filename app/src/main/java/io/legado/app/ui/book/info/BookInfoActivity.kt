@@ -27,7 +27,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.google.android.material.shape.MaterialShapeDrawable
 import com.google.android.material.shape.ShapeAppearanceModel
-import com.google.android.material.transition.platform.MaterialContainerTransform
+import com.google.android.material.transition.platform.MaterialFadeThrough
 import io.legado.app.R
 import io.legado.app.base.VMBaseActivity
 import io.legado.app.constant.BookType
@@ -211,27 +211,28 @@ class BookInfoActivity :
     override fun onCreate(savedInstanceState: Bundle?) {
         if (MotionTokens.enabled) {
             window.requestFeature(Window.FEATURE_ACTIVITY_TRANSITIONS)
-            val transform = MaterialContainerTransform(this, true).apply {
-                addTarget(R.id.iv_cover)
-                duration = 320L
-                fadeMode = MaterialContainerTransform.FADE_MODE_THROUGH
-            }
-            window.sharedElementEnterTransition = transform
-            window.sharedElementReturnTransition = MaterialContainerTransform(this, false).apply {
-                addTarget(R.id.iv_cover)
-                duration = 280L
-            }
+            // 整窗 fade-through:窗口级转场,旧页速退新页缓入。与共享元素彻底解耦——
+            // 无需 postpone 起点门控、封面位图同步、目录延迟落地那套机器;
+            // 对所有进入路径(书架/搜索/裸跳转)统一生效,与 ReadBookActivity 的 fade 同语系
+            window.enterTransition = MaterialFadeThrough().apply { duration = 250L }
+            window.returnTransition = MaterialFadeThrough().apply { duration = 250L }
         }
         super.onCreate(savedInstanceState)
     }
 
     @SuppressLint("PrivateResource")
     override fun onActivityCreated(savedInstanceState: Bundle?) {
-        // hero 卡长按跳转会显式传 coverTransitionName(唯一名,绕开与同书列表 item 的撞名);
-        // 其余全部既有入口(书架列表项/搜索结果等)不传此 extra,走默认拼名,行为不变
-        binding.ivCover.transitionName = intent.getStringExtra("coverTransitionName")
-            ?: ("book_cover_" + intent.getStringExtra("name").orEmpty() +
-                intent.getStringExtra("author").orEmpty())
+        // eager 预载封面:搜索列表带 coverUrl 随 intent 过来,详情页不等书籍详情的网络请求
+        // 就先把封面塞进 ivCover(Glide 通常命中磁盘缓存,毫秒级),首屏即真实封面
+        intent.getStringExtra("coverUrl")?.let { coverUrl ->
+            binding.ivCover.load(
+                coverUrl,
+                intent.getStringExtra("name"),
+                intent.getStringExtra("author"),
+                false,
+                intent.getStringExtra("coverSourceOrigin")
+            )
+        }
         binding.refreshLayout.setColorSchemeColors(accentColor)
         binding.refreshProgressBar.fontColor = accentColor
         binding.flAction.applyNavigationBarPadding()
@@ -810,9 +811,14 @@ class BookInfoActivity :
      * 均不打乱"倒序即最新在前"的干净反转——完整分卷折叠交互仍由目录页(TocListState)承载。
      * 标题替换规则经 upDisplayTitles(列表落地后触发)同样在此生效,与目录页同源。
      */
+    // 目录落地节流:章节构建+diff+RV 重排是重活,砸在进入 fade(250ms)进行中会冻住动画中段。
+    // 统一延后一拍避开动画窗口,顺带合并数据快速连续到达时的重复 submit
+    private val submitTocRunnable = Runnable { submitTocItems() }
+
     private fun upChapterList(chapters: List<BookChapter>) {
         fullChapters = chapters
-        submitTocItems()
+        binding.root.removeCallbacks(submitTocRunnable)
+        binding.root.postDelayed(submitTocRunnable, 300)
     }
 
     private fun submitTocItems(reordered: Boolean = false) {
