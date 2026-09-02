@@ -29,8 +29,15 @@ open class WelcomeActivity : BaseActivity<ActivityWelcomeBinding>() {
 
     override val binding by viewBinding(ActivityWelcomeBinding::inflate)
 
+    // 从桌面点击图标回到已存在任务时,launcher intent 携带该标志
+    private val broughtToFront: Boolean
+        get() = intent.flags and Intent.FLAG_ACTIVITY_BROUGHT_TO_FRONT != 0
+
+    // 不展示欢迎内容的两种中转场景(热启动回任务/关闭欢迎页冷启动)
+    // 窗口保持透明,避免闪现底色
+    override fun shouldShowWindowBackground(): Boolean = AppConfig.showWelcome && !broughtToFront
+
     override fun shouldCreateContentView(): Boolean {
-        val broughtToFront = intent.flags and Intent.FLAG_ACTIVITY_BROUGHT_TO_FRONT != 0
         if (broughtToFront || !AppConfig.showWelcome) {
             if (!broughtToFront) {
                 startMainActivity()
@@ -45,7 +52,7 @@ open class WelcomeActivity : BaseActivity<ActivityWelcomeBinding>() {
         binding.ivBook.setColorFilter(accentColor)
         binding.vwTitleLine.setBackgroundColor(accentColor)
         // 避免从桌面启动程序后，会重新实例化入口类的activity
-        if (intent.flags and Intent.FLAG_ACTIVITY_BROUGHT_TO_FRONT != 0) {
+        if (broughtToFront) {
             finish()
         } else {
             binding.root.postDelayed(600) { startMainActivity() }

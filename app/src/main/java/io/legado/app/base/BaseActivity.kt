@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.res.Configuration
 import android.graphics.Color
 import android.graphics.drawable.BitmapDrawable
+import android.graphics.drawable.ColorDrawable
 import android.os.Build
 import android.os.Bundle
 import android.util.AttributeSet
@@ -95,7 +96,13 @@ abstract class BaseActivity<VB : ViewBinding>(
         AppThemeInstaller.install(this)
         window.decorView.disableAutoFill()
         if (theme != Theme.Transparent) {
-            window.decorView.applyBackgroundTint(backgroundColor)
+            if (shouldShowWindowBackground()) {
+                window.decorView.applyBackgroundTint(backgroundColor)
+            } else {
+                // 中转入口页(不显示自身内容):窗口背景置透明,
+                // 避免首帧前闪现主题底色/全局背景图
+                window.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+            }
         }
         super.onCreate(savedInstanceState)
         if (!shouldCreateContentView()) return
@@ -130,6 +137,8 @@ abstract class BaseActivity<VB : ViewBinding>(
     abstract fun onActivityCreated(savedInstanceState: Bundle?)
 
     protected open fun shouldCreateContentView(): Boolean = true
+
+    protected open fun shouldShowWindowBackground(): Boolean = true
 
     final override fun onCreateOptionsMenu(menu: Menu): Boolean {
         val bool = onCompatCreateOptionsMenu(menu)
