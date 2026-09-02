@@ -22,19 +22,19 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-          cache-dependency-path: modules/web/pnpm-lock.yaml
-
       - uses: pnpm/action-setup@v4
         name: Install pnpm
         id: pnpm-install
         with:
           version: 9
           run_install: false
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: modules/web/pnpm-lock.yaml
 
       - name: Build and move files
         working-directory: modules/web
@@ -50,4 +50,3 @@ jobs:
         with:
           commit_message: Bump web ${{ env.APP_VER}}
           file_pattern: app/src/main/assets/web/vue/
-
