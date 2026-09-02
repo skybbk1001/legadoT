@@ -45,7 +45,8 @@ const startDebug = async () => {
   printDebug.value = ''
   try {
     const source = store.currentSource
-    if (isJsBookSource(source)) {
+    // 脚本清空后仍按当前编辑会话走 JS 调试保存路径
+    if (store.editingJsSource || isJsBookSource(source)) {
       // JS 源调试前先按脚本原文落库：extract 失败直接输出错误，不发起调试
       const { data } = await API.saveJsSource(
         (source as BookSoure).mainJs ?? '',
