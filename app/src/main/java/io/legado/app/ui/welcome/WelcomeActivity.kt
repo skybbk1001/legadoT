@@ -29,14 +29,24 @@ open class WelcomeActivity : BaseActivity<ActivityWelcomeBinding>() {
 
     override val binding by viewBinding(ActivityWelcomeBinding::inflate)
 
+    override fun shouldCreateContentView(): Boolean {
+        val broughtToFront = intent.flags and Intent.FLAG_ACTIVITY_BROUGHT_TO_FRONT != 0
+        if (broughtToFront || !AppConfig.showWelcome) {
+            if (!broughtToFront) {
+                startMainActivity()
+            }
+            finish()
+            return false
+        }
+        return true
+    }
+
     override fun onActivityCreated(savedInstanceState: Bundle?) {
         binding.ivBook.setColorFilter(accentColor)
         binding.vwTitleLine.setBackgroundColor(accentColor)
         // 避免从桌面启动程序后，会重新实例化入口类的activity
         if (intent.flags and Intent.FLAG_ACTIVITY_BROUGHT_TO_FRONT != 0) {
             finish()
-        } else if (!AppConfig.showWelcome) {
-            startMainActivity()
         } else {
             binding.root.postDelayed(600) { startMainActivity() }
         }

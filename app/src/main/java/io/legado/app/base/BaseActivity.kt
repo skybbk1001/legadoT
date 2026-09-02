@@ -98,6 +98,7 @@ abstract class BaseActivity<VB : ViewBinding>(
             window.decorView.applyBackgroundTint(backgroundColor)
         }
         super.onCreate(savedInstanceState)
+        if (!shouldCreateContentView()) return
         setupSystemBar()
         setContentView(binding.root)
         upBackgroundImage()
@@ -127,6 +128,8 @@ abstract class BaseActivity<VB : ViewBinding>(
     }
 
     abstract fun onActivityCreated(savedInstanceState: Bundle?)
+
+    protected open fun shouldCreateContentView(): Boolean = true
 
     final override fun onCreateOptionsMenu(menu: Menu): Boolean {
         val bool = onCompatCreateOptionsMenu(menu)

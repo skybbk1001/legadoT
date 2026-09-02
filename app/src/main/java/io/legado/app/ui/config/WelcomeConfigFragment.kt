@@ -26,6 +26,7 @@ import io.legado.app.utils.removePref
 import io.legado.app.utils.setEdgeEffectColor
 import io.legado.app.utils.toastOnUi
 import splitties.init.appCtx
+import java.io.File
 import java.io.FileOutputStream
 
 class WelcomeConfigFragment : PreferenceFragment(),
@@ -122,6 +123,7 @@ class WelcomeConfigFragment : PreferenceFragment(),
                         )
                     ) { _, i ->
                         if (i == 0) {
+                            deleteStoredImage(preference.key)
                             removePref(preference.key)
                             AppConfig.welcomeShowText = true
                             AppConfig.welcomeShowIcon = true
@@ -155,6 +157,7 @@ class WelcomeConfigFragment : PreferenceFragment(),
                         )
                     ) { _, i ->
                         if (i == 0) {
+                            deleteStoredImage(preference.key)
                             removePref(preference.key)
                             AppConfig.welcomeShowTextDark = true
                             AppConfig.welcomeShowIconDark = true
@@ -192,6 +195,7 @@ class WelcomeConfigFragment : PreferenceFragment(),
     }
 
     private fun setCoverFromUri(preferenceKey: String, uri: Uri) {
+        val oldPath = getPrefString(preferenceKey)
         readUri(uri) { fileDoc, inputStream ->
             kotlin.runCatching {
                 var file = requireContext().externalFiles
@@ -204,9 +208,24 @@ class WelcomeConfigFragment : PreferenceFragment(),
                     inputStream.copyTo(it)
                 }
                 putPrefString(preferenceKey, file.absolutePath)
+                if (oldPath != file.absolutePath) {
+                    deleteStoredImage(oldPath)
+                }
             }.onFailure {
                 appCtx.toastOnUi(it.localizedMessage)
             }
+        }
+    }
+
+    private fun deleteStoredImage(path: String?) {
+        if (path.isNullOrEmpty()) return
+        val file = File(path)
+        val coversDir = File(requireContext().externalFiles, "covers")
+        val isStoredImage = runCatching {
+            file.canonicalFile.parentFile == coversDir.canonicalFile
+        }.getOrDefault(false)
+        if (isStoredImage) {
+            FileUtils.delete(file)
         }
     }
 
