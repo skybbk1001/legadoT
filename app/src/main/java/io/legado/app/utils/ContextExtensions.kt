@@ -160,8 +160,17 @@ fun Context.startForegroundServiceCompat(intent: Intent) {
 val Context.defaultSharedPreferences: SharedPreferences
     get() = PreferenceManager.getDefaultSharedPreferences(this)
 
-fun Context.getPrefBoolean(key: String, defValue: Boolean = false) =
-    defaultSharedPreferences.getBoolean(key, defValue)
+fun Context.getPrefBoolean(key: String, defValue: Boolean = false): Boolean {
+    val preferences = defaultSharedPreferences
+    return when (val value = preferences.all[key]) {
+        is Boolean -> value
+        is String -> value.toBooleanStrictOrNull()?.also {
+            // Imported legacy preferences can store switch values as strings.
+            preferences.edit { putBoolean(key, it) }
+        } ?: defValue
+        else -> defValue
+    }
+}
 
 fun Context.putPrefBoolean(key: String, value: Boolean = false) =
     defaultSharedPreferences.edit { putBoolean(key, value) }
