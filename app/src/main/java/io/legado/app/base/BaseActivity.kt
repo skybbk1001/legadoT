@@ -18,6 +18,7 @@ import android.widget.FrameLayout
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.Toolbar
+import androidx.lifecycle.lifecycleScope
 import androidx.viewbinding.ViewBinding
 import io.legado.app.R
 import io.legado.app.constant.AppConst
@@ -44,6 +45,9 @@ import io.legado.app.utils.setNavigationBarColorAuto
 import io.legado.app.utils.setStatusBarColorAuto
 import io.legado.app.utils.toastOnUi
 import io.legado.app.utils.windowSize
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 
 abstract class BaseActivity<VB : ViewBinding>(
@@ -193,15 +197,24 @@ abstract class BaseActivity<VB : ViewBinding>(
     }
 
     open fun upBackgroundImage() {
-        if (imageBg) {
-            try {
-                ThemeConfig.getBgImage(this, windowManager.windowSize)?.let {
-                    window.decorView.background = BitmapDrawable(resources, it)
-                }
+        if (!imageBg) return
+        // 解码/模糊移出主线程:同步解码会阻塞首帧,拉长"纯背景空窗期"(#31);
+        // 首帧先呈纯色底,背景图在内容绘制期间异步解码、就绪后挂上
+        val metrics = windowManager.windowSize
+        lifecycleScope.launch(Dispatchers.IO) {
+            val bitmap = try {
+                ThemeConfig.getBgImage(this@BaseActivity, metrics)
             } catch (e: OutOfMemoryError) {
                 toastOnUi("背景图片太大,内存溢出")
+                null
             } catch (e: Exception) {
                 AppLog.put("加载背景出错\n${e.localizedMessage}", e)
+                null
+            } ?: return@launch
+            withContext(Dispatchers.Main) {
+                if (!isFinishing && !isDestroyed) {
+                    window.decorView.background = BitmapDrawable(resources, bitmap)
+                }
             }
         }
     }
