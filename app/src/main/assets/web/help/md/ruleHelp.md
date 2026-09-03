@@ -412,4 +412,18 @@ if (event == "clickShareBook") {
 }
 ```
 
+**页面跳转调度**
+
+```js
+java.open(name: String, url?: String, title?: String, origin?: String)
+// name: login=源登录页 search=书籍搜索 explore=发现结果页
+// url: explore=发现地址
+// title: 页面标题; search 时为搜索词
+// origin: 指定目标源(书源url), 缺省当前源
+java.open("login")                                    // 当前源登录页
+java.open("login", null, null, "书源url")             // 指定源登录页
+java.open("search", null, "关键词")                   // 按关键词搜书
+java.open("explore", exploreUrl, "分类名")            // 打开发现结果页(当前源)
+```
+
 > JS 执行有超时限制（30 秒），请避免耗时操作。
