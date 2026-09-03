@@ -2,7 +2,6 @@ package io.legado.app.ui.login
 
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
-import io.legado.app.constant.EventBus
 import io.legado.app.data.appDb
 import io.legado.app.data.entities.BaseSource
 import io.legado.app.data.entities.BookSource
@@ -11,7 +10,6 @@ import io.legado.app.help.JsExtensions
 import io.legado.app.ui.association.AddToBookshelfDialog
 import io.legado.app.ui.book.explore.ExploreShowActivity
 import io.legado.app.ui.book.search.SearchActivity
-import io.legado.app.utils.postEvent
 import io.legado.app.utils.showDialogFragment
 import io.legado.app.utils.startActivity
 import io.legado.app.utils.toastOnUi
@@ -32,18 +30,6 @@ class SourceCallbackJsExtensions(
 
     override fun getSource(): BaseSource? {
         return sourceRef.get()
-    }
-
-    fun refreshBookInfo() {
-        postEvent(EventBus.REFRESH_BOOK_INFO, true)
-    }
-
-    fun refreshBookToc() {
-        postEvent(EventBus.REFRESH_BOOK_TOC, true)
-    }
-
-    fun refreshContent() {
-        postEvent(EventBus.REFRESH_BOOK_CONTENT, true)
     }
 
     fun searchBook(key: String) {

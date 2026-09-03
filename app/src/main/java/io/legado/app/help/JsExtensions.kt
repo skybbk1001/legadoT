@@ -10,6 +10,7 @@ import io.legado.app.constant.AppConst
 import io.legado.app.constant.AppConst.dateFormat
 import io.legado.app.constant.AppLog
 import io.legado.app.constant.AppPattern
+import io.legado.app.constant.EventBus
 import io.legado.app.data.entities.BaseSource
 import io.legado.app.exception.NoStackTraceException
 import io.legado.app.help.config.AppConfig
@@ -48,6 +49,7 @@ import io.legado.app.utils.isAbsUrl
 import io.legado.app.utils.isMainThread
 import io.legado.app.utils.longToastOnUi
 import io.legado.app.utils.mapAsync
+import io.legado.app.utils.postEvent
 import io.legado.app.utils.sendToClip
 import io.legado.app.utils.showDialogFragment
 import io.legado.app.utils.stackTraceStr
@@ -1078,6 +1080,27 @@ interface JsExtensions : JsEncodeUtils {
      */
     fun copyText(text: String) {
         appCtx.sendToClip(text)
+    }
+
+    /**
+     * 刷新书籍详情信息
+     */
+    fun refreshBookInfo() {
+        postEvent(EventBus.REFRESH_BOOK_INFO, true)
+    }
+
+    /**
+     * 刷新章节目录
+     */
+    fun refreshBookToc() {
+        postEvent(EventBus.REFRESH_BOOK_TOC, true)
+    }
+
+    /**
+     * 刷新当前章节正文
+     */
+    fun refreshContent() {
+        postEvent(EventBus.REFRESH_BOOK_CONTENT, true)
     }
 
     /**
