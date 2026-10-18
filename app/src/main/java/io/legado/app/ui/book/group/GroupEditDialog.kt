@@ -11,8 +11,10 @@ import io.legado.app.databinding.DialogBookGroupEditBinding
 import io.legado.app.lib.dialogs.alert
 import io.legado.app.ui.file.HandleFileContract
 import io.legado.app.utils.FileUtils
+import io.legado.app.utils.GSON
 import io.legado.app.utils.MD5Utils
 import io.legado.app.utils.externalFiles
+import io.legado.app.utils.fromJsonObject
 import io.legado.app.utils.gone
 import io.legado.app.utils.inputStream
 import io.legado.app.utils.readUri
@@ -28,7 +30,7 @@ class GroupEditDialog() : BaseDialogFragment(R.layout.dialog_book_group_edit) {
 
     constructor(bookGroup: BookGroup? = null) : this() {
         arguments = Bundle().apply {
-            putParcelable("group", bookGroup?.copy())
+            putString("group", bookGroup?.let { GSON.toJson(it.copy()) })
         }
     }
 
@@ -61,8 +63,8 @@ class GroupEditDialog() : BaseDialogFragment(R.layout.dialog_book_group_edit) {
     }
 
     override fun onFragmentCreated(view: View, savedInstanceState: Bundle?) {
-        @Suppress("DEPRECATION")
-        bookGroup = arguments?.getParcelable("group")
+        bookGroup = arguments?.getString("group")
+            ?.let { GSON.fromJsonObject<BookGroup>(it).getOrNull() }
         binding.spSort.setFilterValues(*resources.getStringArray(R.array.book_sort))
         bookGroup?.let {
             binding.btnDelete.visible(it.groupId > 0 || it.groupId == Long.MIN_VALUE)

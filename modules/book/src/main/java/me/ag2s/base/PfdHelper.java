@@ -1,16 +1,12 @@
 package me.ag2s.base;
 
-import static me.ag2s.base.ThrowableUtils.rethrowAsIOException;
-
-import android.os.ParcelFileDescriptor;
-import android.system.ErrnoException;
-import android.system.OsConstants;
-
 import java.io.EOFException;
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
 
 /**
- * 读取ParcelFileDescriptor的工具类
+ * 读取FileChannel的工具类
  */
 @SuppressWarnings("unused")
 public final class PfdHelper {
@@ -20,56 +16,42 @@ public final class PfdHelper {
      */
     private static final byte[] readBuffer = new byte[8];
 
-    public static void seek(ParcelFileDescriptor pfd, long pos) throws IOException {
-        try {
-            android.system.Os.lseek(pfd.getFileDescriptor(), pos, OsConstants.SEEK_SET);
-        } catch (ErrnoException e) {
-            throw rethrowAsIOException(e);
-        }
-
+    public static void seek(FileChannel pfd, long pos) throws IOException {
+        pfd.position(pos);
     }
 
-    public static long getFilePointer(ParcelFileDescriptor pfd) throws IOException {
-        try {
-            return android.system.Os.lseek(pfd.getFileDescriptor(), 0, OsConstants.SEEK_CUR);
-        } catch (ErrnoException e) {
-            throw rethrowAsIOException(e);
-        }
+    public static long getFilePointer(FileChannel pfd) throws IOException {
+        return pfd.position();
     }
 
-    public static long length(ParcelFileDescriptor pfd) throws IOException {
-        try {
-            return android.system.Os.fstat(pfd.getFileDescriptor()).st_size; //android.system.Os.lseek(pfd.getFileDescriptor(), 0, OsConstants.SEEK_END);
-        } catch (ErrnoException e) {
-            throw rethrowAsIOException(e);
-        }
+    public static long length(FileChannel pfd) throws IOException {
+        return pfd.size();
     }
 
-    private static int readBytes(ParcelFileDescriptor pfd, byte[] b, int off, int len) throws IOException {
-        try {
-            return android.system.Os.read(pfd.getFileDescriptor(), b, off, len);
-        } catch (ErrnoException e) {
-            throw rethrowAsIOException(e);
+    private static int readBytes(FileChannel pfd, byte[] b, int off, int len) throws IOException {
+        if (len == 0) {
+            return 0;
         }
+        return pfd.read(ByteBuffer.wrap(b, off, len));
     }
 
-    public static int read(ParcelFileDescriptor pfd) throws IOException {
+    public static int read(FileChannel pfd) throws IOException {
         return (read(pfd, readBuffer, 0, 1) != -1) ? readBuffer[0] & 0xff : -1;
     }
 
-    public static int read(ParcelFileDescriptor pfd, byte[] b, int off, int len) throws IOException {
+    public static int read(FileChannel pfd, byte[] b, int off, int len) throws IOException {
         return readBytes(pfd, b, off, len);
     }
 
-    public static int read(ParcelFileDescriptor pfd, byte[] b) throws IOException {
+    public static int read(FileChannel pfd, byte[] b) throws IOException {
         return readBytes(pfd, b, 0, b.length);
     }
 
-    public static void readFully(ParcelFileDescriptor pfd, byte[] b) throws IOException {
+    public static void readFully(FileChannel pfd, byte[] b) throws IOException {
         readFully(pfd, b, 0, b.length);
     }
 
-    public static void readFully(ParcelFileDescriptor pfd, byte[] b, int off, int len) throws IOException {
+    public static void readFully(FileChannel pfd, byte[] b, int off, int len) throws IOException {
         int n = 0;
         do {
             int count = read(pfd, b, off + n, len - n);
@@ -80,7 +62,7 @@ public final class PfdHelper {
     }
 
 
-    public static int skipBytes(ParcelFileDescriptor pfd, int n) throws IOException {
+    public static int skipBytes(FileChannel pfd, int n) throws IOException {
         long pos;
         long len;
         long newpos;

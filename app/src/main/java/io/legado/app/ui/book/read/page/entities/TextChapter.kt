@@ -29,7 +29,8 @@ data class TextChapter(
     val isVip: Boolean,
     val isPay: Boolean,
     //起效的替换规则
-    val effectiveReplaceRules: List<ReplaceRule>?
+    val effectiveReplaceRules: List<ReplaceRule>?,
+    val paragraphTexts: List<String> = emptyList()
 ) : LayoutProgressListener {
 
     /**

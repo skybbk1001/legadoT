@@ -38,15 +38,16 @@ data class TextSelectMenuConfig(
         const val KEY_SEARCH = "search"
         const val KEY_BROWSER = "browser"
         const val KEY_SHARE = "share"
+        const val KEY_REVIEW = "review"
 
         /** 规范顺序(全新安装/补全缺失项时用) */
         val ALL_KEYS = listOf(
             KEY_REPLACE, KEY_COPY, KEY_BOOKMARK, KEY_HIGHLIGHT, KEY_ALOUD,
-            KEY_DICT, KEY_SEARCH, KEY_BROWSER, KEY_SHARE
+            KEY_DICT, KEY_SEARCH, KEY_BROWSER, KEY_SHARE, KEY_REVIEW
         )
 
         val DEFAULT_BAR = listOf(KEY_REPLACE, KEY_COPY, KEY_BOOKMARK, KEY_HIGHLIGHT, KEY_ALOUD)
-        val DEFAULT_MORE = listOf(KEY_DICT, KEY_SEARCH, KEY_BROWSER, KEY_SHARE)
+        val DEFAULT_MORE = listOf(KEY_DICT, KEY_SEARCH, KEY_BROWSER, KEY_SHARE, KEY_REVIEW)
 
         private val gson = Gson()
 

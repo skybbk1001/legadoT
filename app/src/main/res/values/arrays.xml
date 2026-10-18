@@ -1,6 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools">
 
+	<!--
+	    Nostr 中继的出厂默认/种子列表，用户可在「其它设置-Nostr」中修改或自动发现。
+	    下面这些是实测在受限网络（DNS 被污染、境外中继不可达）下仍能完成 TLS+WebSocket
+	    握手且不要求 AUTH 的中继；旧的 relay.primal.net / nos.lol / relay.damus.io /
+	    nostr.oxtr.dev 在部分网络下解析被污染，已不再作为默认值。
+	-->
+	<string-array name="nostr_seed_relays">
+		<item>wss://relay.nostrzh.org</item>
+		<item>wss://relay.ditto.pub</item>
+		<item>wss://relay.gulugulu.moe</item>
+		<item>wss://relay.nostr.place</item>
+		<item>wss://nostr.azzamo.net</item>
+		<item>wss://relay.nostr.hu</item>
+	</string-array>
+
 	<string-array name="server_type">
 		<item>WEBDAV</item>
 	</string-array>

@@ -15,6 +15,7 @@ import io.legado.app.help.book.isNotShelf
 import io.legado.app.help.source.ExploreContainerHelp
 import io.legado.app.help.source.exploreKinds
 import io.legado.app.model.webBook.WebBook
+import io.legado.app.model.webBook.asSearchBooks
 import io.legado.app.utils.toastOnUi
 import kotlinx.coroutines.Dispatchers.IO
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -260,7 +261,7 @@ class ExploreViewModel(application: Application) : BaseViewModel(application) {
                 var loadedPage = page
                 var books = loadLimiter.withPermit {
                     withTimeout(30_000L) {
-                        WebBook.exploreBookAwait(source, url, loadedPage)
+                        WebBook.exploreBookAwait(source, url, loadedPage).asSearchBooks()
                     }
                 }
                 if (books.isEmpty() && loadedPage > 1) {
@@ -268,7 +269,7 @@ class ExploreViewModel(application: Application) : BaseViewModel(application) {
                     loadedPage = 1
                     books = loadLimiter.withPermit {
                         withTimeout(30_000L) {
-                            WebBook.exploreBookAwait(source, url, loadedPage)
+                            WebBook.exploreBookAwait(source, url, loadedPage).asSearchBooks()
                         }
                     }
                 }

@@ -1,6 +1,6 @@
 package me.ag2s.epublib.epub;
 
-import android.util.Log;
+import me.ag2s.epublib.util.Log;
 
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;

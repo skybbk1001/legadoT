@@ -15,6 +15,7 @@ import io.legado.app.help.config.LocalConfig
 import io.legado.app.help.config.ReadBookConfig
 import io.legado.app.help.config.ThemeConfig
 import io.legado.app.help.coroutine.Coroutine
+import io.legado.app.help.nostr.NostrSignerStore
 import io.legado.app.model.BookCover
 import io.legado.app.utils.FileUtils
 import io.legado.app.utils.GSON
@@ -57,6 +58,9 @@ object Backup {
 
     private const val TAG = "Backup"
 
+    /** 非敏感 Nostr 账号信息（bunker URI / 签名器公钥 / 用户公钥 / 中继）。 */
+    const val nostrAccountFileName = "nostrAccount.json"
+
     private val mutex = Mutex()
 
     private val backupFileNames by lazy {
@@ -78,6 +82,7 @@ object Backup {
             "keyboardAssists.json",
             "dictRule.json",
             "servers.json",
+            nostrAccountFileName,
             "autoTask.json",
             "exploreContainer.json",
             DirectLinkUpload.ruleFileName,
@@ -163,6 +168,15 @@ object Backup {
                 encryptBase64(json)
             }.getOrDefault(json).let {
                 FileUtils.createFileIfNotExist(backupPath + File.separator + "servers.json")
+                    .writeText(it)
+            }
+        }
+        NostrSignerStore.exportAccount()?.let { account ->
+            val json = GSON.toJson(account)
+            aes.runCatching {
+                encryptBase64(json)
+            }.getOrDefault(json).let {
+                FileUtils.createFileIfNotExist(backupPath + File.separator + nostrAccountFileName)
                     .writeText(it)
             }
         }

@@ -19,10 +19,12 @@ import io.legado.app.model.AudioPlay
 import io.legado.app.model.webBook.WebBook
 import io.legado.app.utils.postEvent
 import io.legado.app.utils.toastOnUi
+import io.legado.app.data.entities.delete
+import io.legado.app.data.entities.migrateTo
 
 class AudioPlayViewModel(application: Application) : BaseViewModel(application) {
     val titleData = MutableLiveData<String>()
-    val coverData = MutableLiveData<String>()
+    val coverData = MutableLiveData<String?>()
     val customBtnData = MutableLiveData<Boolean>()
 
     fun initData(intent: Intent) = AudioPlay.apply {

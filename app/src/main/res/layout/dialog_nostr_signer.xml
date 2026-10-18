@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:paddingStart="24dp"
+    android:paddingTop="8dp"
+    android:paddingEnd="24dp"
+    android:paddingBottom="16dp">
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:text="@string/nostr_signer_qr_row"
+        android:textSize="16sp" />
+
+    <TextView
+        android:id="@+id/tv_qr_summary"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:textSize="12sp"
+        tools:text="@string/nostr_signer_qr_summary" />
+
+    <ImageView
+        android:id="@+id/iv_qr"
+        android:layout_width="240dp"
+        android:layout_height="240dp"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginTop="8dp"
+        android:background="?attr/selectableItemBackground"
+        android:clickable="true"
+        android:contentDescription="@string/nostr_signer_scan_qr"
+        android:focusable="true"
+        android:padding="8dp"
+        android:scaleType="fitCenter" />
+
+    <LinearLayout
+        android:id="@+id/row_local"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="?attr/selectableItemBackground"
+        android:clickable="true"
+        android:focusable="true"
+        android:gravity="center_vertical"
+        android:minHeight="56dp"
+        android:orientation="horizontal">
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/nostr_external_signer"
+                android:textSize="16sp" />
+
+            <TextView
+                android:id="@+id/tv_local_summary"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:textSize="12sp"
+                tools:text="@string/nostr_external_signer_not_installed" />
+
+        </LinearLayout>
+
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <io.legado.app.ui.widget.text.TextInputLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1">
+
+            <io.legado.app.ui.widget.text.AutoCompleteTextView
+                android:id="@+id/et_bunker"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="@string/nostr_signer_bunker_hint"
+                android:inputType="textUri"
+                android:maxLines="1" />
+
+        </io.legado.app.ui.widget.text.TextInputLayout>
+
+        <Button
+            android:id="@+id/btn_bunker_login"
+            style="?android:attr/borderlessButtonStyle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:text="@string/nostr_signer_login" />
+
+    </LinearLayout>
+
+</LinearLayout>

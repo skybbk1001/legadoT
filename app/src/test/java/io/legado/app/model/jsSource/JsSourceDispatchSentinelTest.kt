@@ -11,16 +11,17 @@ import java.io.File
 class JsSourceDispatchSentinelTest {
 
     private val webBook =
-        File("src/main/java/io/legado/app/model/webBook/WebBook.kt").readText()
+        File("../shared/src/commonMain/kotlin/io/legado/app/model/webBook/WebBook.kt").readText()
 
     @Test
     fun fourAwaitEntriesDispatchToJsSourceBook() {
+        //迁移 shared 后经 WebBookBridge.jsSource 代理分派(app 侧接线 JsSourceBook)
         listOf(
-            "JsSourceBook.searchAwait",
-            "JsSourceBook.exploreAwait",
-            "JsSourceBook.getBookInfoAwait",
-            "JsSourceBook.getChapterListAwait",
-            "JsSourceBook.getContentAwait",
+            "jsSource?.searchAwait",
+            "jsSource?.exploreAwait",
+            "jsSource?.getBookInfoAwait",
+            "jsSource?.getChapterListAwait",
+            "jsSource?.getContentAwait",
         ).forEach {
             assertTrue("WebBook 缺少分派: $it", webBook.contains(it))
         }
@@ -28,7 +29,7 @@ class JsSourceDispatchSentinelTest {
 
     @Test
     fun searchDispatchPrecedesDeclarativeGuard() {
-        val dispatch = webBook.indexOf("JsSourceBook.searchAwait")
+        val dispatch = webBook.indexOf("jsSource?.searchAwait")
         val declarativeGuard = webBook.indexOf("搜索url不能为空")
         assertTrue("JS 分派必须在 searchUrl 空判之前", dispatch in 1 until declarativeGuard)
     }

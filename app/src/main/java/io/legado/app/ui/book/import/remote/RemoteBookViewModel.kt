@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import java.util.Collections
+import io.legado.app.data.entities.save
 
 class RemoteBookViewModel(application: Application) : BaseViewModel(application) {
     var sortKey = RemoteBookSort.Default

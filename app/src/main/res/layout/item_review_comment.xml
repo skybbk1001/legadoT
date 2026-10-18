@@ -49,6 +49,18 @@
                 android:id="@+id/ll_badges"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content" />
+
+            <TextView
+                android:id="@+id/tv_reply_to"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:ellipsize="end"
+                android:maxLines="1"
+                app:skin_textColor="onSurfaceVariant"
+                android:textColor="@color/secondaryText"
+                android:textSize="12sp"
+                android:visibility="gone" />
         </LinearLayout>
 
         <TextView
@@ -90,16 +102,39 @@
             android:textSize="@dimen/text_caption"
             android:visibility="gone" />
 
-        <TextView
-            android:id="@+id/tv_time"
+        <LinearLayout
+            android:id="@+id/ll_footer"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="7dp"
-            android:ellipsize="end"
-            android:maxLines="1"
-            app:skin_textColor="onSurfaceVariant"
-            android:textColor="@color/secondaryText"
-            android:textSize="@dimen/text_caption" />
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/tv_time"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:maxLines="1"
+                app:skin_textColor="onSurfaceVariant"
+                android:textColor="@color/secondaryText"
+                android:textSize="@dimen/text_caption" />
+
+            <TextView
+                android:id="@+id/tv_reply_bottom"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:gravity="center"
+                android:paddingStart="8dp"
+                android:paddingEnd="8dp"
+                android:paddingTop="4dp"
+                android:paddingBottom="4dp"
+                android:text="@string/nostr_comment_reply"
+                android:textColor="@color/accent"
+                android:textSize="12sp"
+                android:visibility="gone" />
+        </LinearLayout>
     </LinearLayout>
 
     <LinearLayout

@@ -203,6 +203,9 @@ object ChapterProvider {
 
     private const val reviewTitleOffset = 1
 
+    /** 章末「未定位段评」入口的保留 reviewId；与真实段落号（从 1 起）不冲突。 */
+    const val REVIEW_ID_CHAPTER_END = 1_000_000_000
+
     init {
         upStyle()
     }
@@ -367,7 +370,8 @@ object ChapterProvider {
             bookContent.sameTitleRemoved,
             bookChapter.isVip,
             bookChapter.isPay,
-            bookContent.effectiveReplaceRules
+            bookContent.effectiveReplaceRules,
+            contents.toList()
         )
     }
 
@@ -389,7 +393,8 @@ object ChapterProvider {
             bookContent.sameTitleRemoved,
             bookChapter.isVip,
             bookChapter.isPay,
-            bookContent.effectiveReplaceRules
+            bookContent.effectiveReplaceRules,
+            bookContent.textList.toList()
         ).apply {
             createLayout(scope, book, bookContent)
         }
@@ -973,13 +978,17 @@ object ChapterProvider {
         upLayout()
     }
 
+    /**
+     * 设置段评计数/来源 provider 并同步三章段评列，返回段评列是否真的发生了变化。
+     * 调用方据此决定要不要重绘视图，避免 provider 未变时无谓地整页刷新。
+     */
     fun setReviewProviders(
         countProvider: ((Int, Int) -> Int)?,
         keyProvider: ((Int, Int) -> String?)?
-    ) {
+    ): Boolean {
         reviewCountProvider = countProvider
         reviewKeyProvider = keyProvider
-        refreshReviewColumns()
+        return refreshReviewColumns()
     }
 
     fun clearReviewProviders() {
@@ -1011,15 +1020,56 @@ object ChapterProvider {
         refreshReviewColumns()
     }
 
-    private fun refreshReviewColumns() {
-        refreshReviewColumns(ReadBook.prevTextChapter)
-        refreshReviewColumns(ReadBook.curTextChapter)
-        refreshReviewColumns(ReadBook.nextTextChapter)
+    @Volatile
+    private var transientReview: Pair<Int, Int>? = null
+
+    /**
+     * 选中「没有段评」的段落时，临时显示一个可点击的空气泡作为评论入口；
+     * chapterIndex/reviewId 与 [getReviewCount] 口径一致(reviewId = 段落号 - titleOffset)。
+     */
+    fun showTransientReviewColumn(chapterIndex: Int, reviewId: Int) {
+        if (reviewId <= 0) return
+        val target = chapterIndex to reviewId
+        if (transientReview == target) return
+        transientReview = target
+        refreshReviewColumns()
     }
 
-    private fun refreshReviewColumns(textChapter: TextChapter?) {
-        textChapter ?: return
+    fun clearTransientReviewColumn() {
+        if (transientReview == null) return
+        transientReview = null
+        refreshReviewColumns()
+    }
+
+    /**
+     * 段落实际要落的段评数：>0 是正常气泡；-1 只在被选中的无段评段落上临时出现；0 不显示。
+     */
+    private fun resolveReviewCount(
+        paragraphNum: Int,
+        isTitle: Boolean,
+        titleOffset: Int,
+        chapterIndex: Int,
+    ): Int {
+        val count = getReviewCount(paragraphNum, isTitle, titleOffset, chapterIndex)
+        if (count > 0) return count
+        val target = transientReview ?: return 0
+        if (target.first != chapterIndex) return 0
+        return if (paragraphNum - titleOffset == target.second) -1 else 0
+    }
+
+    private fun refreshReviewColumns(): Boolean {
+        // 三章都要过一遍，任一章有列变化即视为需要重绘
+        var anyChanged = refreshReviewColumns(ReadBook.prevTextChapter)
+        anyChanged = refreshReviewColumns(ReadBook.curTextChapter) || anyChanged
+        anyChanged = refreshReviewColumns(ReadBook.nextTextChapter) || anyChanged
+        return anyChanged
+    }
+
+    private fun refreshReviewColumns(textChapter: TextChapter?): Boolean {
+        textChapter ?: return false
         val chapterIndex = textChapter.chapter.index
+        val endParagraphNum = findChapterEndParagraphNum(textChapter)
+        var anyChanged = false
         var pageIndex = 0
         while (pageIndex < textChapter.pageSize) {
             val page = textChapter.getPage(pageIndex) ?: break
@@ -1028,44 +1078,34 @@ object ChapterProvider {
             var lineIndex = 0
             while (lineIndex < lineSize) {
                 val line = lines.getOrNull(lineIndex) ?: break
-                val count = getReviewCount(
+                val count = resolveReviewCount(
                     paragraphNum = line.paragraphNum,
                     isTitle = line.isTitle,
                     titleOffset = line.reviewTitleOffset,
                     chapterIndex = chapterIndex
                 )
-                var changed = false
-                val shouldShow = count > 0 && line.isParagraphEnd
-                if (!shouldShow) {
-                    if (line.removeColumns { it is ReviewColumn }) {
-                        changed = true
-                    }
-                } else {
-                    var hasReviewColumn = false
-                    line.columns.forEach { column ->
-                        if (column is ReviewColumn) {
-                            hasReviewColumn = true
-                            if (column.count != count) {
-                                column.count = count
-                                changed = true
-                            }
-                            if (updateReviewColumnLayout(column, line)) {
-                                changed = true
-                            }
-                        }
-                    }
-                    if (!hasReviewColumn) {
-                        appendReviewColumnIfNeeded(line, chapterIndex = chapterIndex)
-                        changed = true
+                // 期望的段评气泡：本段气泡 reviewId 用 0 表示「未显式指定」，点击时回退用行号计算。
+                val desired = mutableListOf<Pair<Int, Int>>()
+                // count == -1 是选中空段落时的临时气泡；0 才完全无段评。
+                if (count != 0 && line.isParagraphEnd) {
+                    desired.add(0 to count)
+                }
+                // 未定位气泡只挂在最后一段末行，且确有未定位评论时才有；否则章末不显示任何章评气泡。
+                if (!line.isTitle && line.isParagraphEnd && line.paragraphNum == endParagraphNum) {
+                    val unlocated = reviewCountProvider?.invoke(chapterIndex, REVIEW_ID_CHAPTER_END) ?: 0
+                    if (unlocated > 0) {
+                        desired.add(REVIEW_ID_CHAPTER_END to unlocated)
                     }
                 }
-                if (changed) {
+                if (syncReviewColumns(line, desired)) {
                     line.invalidate()
+                    anyChanged = true
                 }
                 lineIndex++
             }
             pageIndex++
         }
+        return anyChanged
     }
 
     fun getReviewCount(
@@ -1084,19 +1124,28 @@ object ChapterProvider {
         return provider(chapterIndex, reviewId)
     }
 
+    /**
+     * 按 reviewId（与段评统计 counts 同一键空间，即段落号 - reviewTitleOffset）取当前已上屏的计数；
+     * 供发布后的乐观计数拿基线：调用方手上只有 reviewId，没有段落号。
+     */
+    fun getReviewCountByReviewId(
+        reviewId: Int,
+        chapterIndex: Int = ReadBook.durChapterIndex,
+    ): Int = reviewCountProvider?.invoke(chapterIndex, reviewId) ?: 0
+
     private fun updateReviewCount(
         textLine: TextLine,
         paragraphNum: Int,
         titleOffset: Int? = null,
         chapterIndex: Int = ReadBook.durChapterIndex,
     ) {
-        val count = getReviewCount(
-            paragraphNum,
-            textLine.isTitle,
-            titleOffset ?: textLine.reviewTitleOffset,
-            chapterIndex
+        val count = resolveReviewCount(
+            paragraphNum = paragraphNum,
+            isTitle = textLine.isTitle,
+            titleOffset = titleOffset ?: textLine.reviewTitleOffset,
+            chapterIndex = chapterIndex
         )
-        if (count <= 0) return
+        if (count == 0) return
         textLine.columns.forEach { column ->
             if (column is ReviewColumn) {
                 column.count = count
@@ -1110,23 +1159,69 @@ object ChapterProvider {
         chapterIndex: Int = ReadBook.durChapterIndex,
     ) {
         if (textLine.columns.any { it is ReviewColumn }) return
-        val count = getReviewCount(
-            textLine.paragraphNum,
-            textLine.isTitle,
-            titleOffset ?: textLine.reviewTitleOffset,
-            chapterIndex
+        val count = resolveReviewCount(
+            paragraphNum = textLine.paragraphNum,
+            isTitle = textLine.isTitle,
+            titleOffset = titleOffset ?: textLine.reviewTitleOffset,
+            chapterIndex = chapterIndex
         )
-        if (count <= 0) return
+        // count == -1 是选中空段落时的临时气泡，也要显示出来。
+        if (count == 0) return
         val reviewColumn = ReviewColumn(start = 0f, end = 0f, count = count)
-        updateReviewColumnLayout(reviewColumn, textLine)
         textLine.addColumn(reviewColumn)
+        layoutReviewColumns(textLine)
     }
 
     private fun getReviewScaleFactor(): Float {
         return ReadBookConfig.reviewIconScale.coerceIn(50, 200) / 100f
     }
 
-    private fun getReviewColumnRange(textLine: TextLine): Pair<Float, Float> {
+    /** 找本章正文最后一段的段落号（无正文时返回 0，不会匹配任何段落）。 */
+    private fun findChapterEndParagraphNum(textChapter: TextChapter): Int {
+        var endParagraphNum = 0
+        for (pageIndex in 0 until textChapter.pageSize) {
+            val page = textChapter.getPage(pageIndex) ?: break
+            for (line in page.lines) {
+                if (!line.isTitle && line.isParagraphEnd && line.paragraphNum > endParagraphNum) {
+                    endParagraphNum = line.paragraphNum
+                }
+            }
+        }
+        return endParagraphNum
+    }
+
+    /** 把一行上的段评气泡同步到期望列表（按 reviewId 去重，0 表示本段气泡）。 */
+    private fun syncReviewColumns(line: TextLine, desired: List<Pair<Int, Int>>): Boolean {
+        var changed = false
+        val desiredIds = desired.map { it.first }.toHashSet()
+        // 移除不再需要的气泡
+        if (line.columns.any { it is ReviewColumn && it.reviewId !in desiredIds }) {
+            line.removeColumns { it is ReviewColumn && it.reviewId !in desiredIds }
+            changed = true
+        }
+        // 更新已有 / 新增缺失
+        desired.forEach { (reviewId, count) ->
+            val column = line.columns.filterIsInstance<ReviewColumn>()
+                .firstOrNull { it.reviewId == reviewId }
+            if (column == null) {
+                line.addColumn(ReviewColumn(start = 0f, end = 0f, count = count, reviewId = reviewId))
+                changed = true
+            } else if (column.count != count) {
+                column.count = count
+                changed = true
+            }
+        }
+        if (layoutReviewColumns(line)) {
+            changed = true
+        }
+        return changed
+    }
+
+    /** 重新排布一行上的所有段评气泡：从文字末尾起依次向右，受屏幕右缘约束。 */
+    private fun layoutReviewColumns(textLine: TextLine): Boolean {
+        val reviewColumns = textLine.columns.filterIsInstance<ReviewColumn>()
+            .sortedBy { it.reviewId }
+        if (reviewColumns.isEmpty()) return false
         val width = getReviewWidth(textLine.isTitle)
         // 图标可延伸进右侧页边距，最多到屏幕物理边缘（双页时为本页中线），留 1dp 不贴边
         val screenRight = if (doublePage && textLine.isLeftLine) {
@@ -1136,19 +1231,19 @@ object ChapterProvider {
         }
         val maxEnd = screenRight - 1.dpToPx()
         val textEnd = textLine.columns.lastOrNull { it !is ReviewColumn }?.end ?: textLine.lineEnd
-        // 紧跟文字末尾；排满整行时溢出到页边距，而不是被往左拽压在文字上
-        val start = kotlin.math.min(textEnd, maxEnd - width)
-        return start to start + width
-    }
-
-    private fun updateReviewColumnLayout(reviewColumn: ReviewColumn, textLine: TextLine): Boolean {
-        val (start, end) = getReviewColumnRange(textLine)
-        if (reviewColumn.start == start && reviewColumn.end == end) {
-            return false
+        // 紧跟文字末尾；排满整行时整体向左让最后一个气泡贴住页边距，而不是压在文字上
+        var cursor = kotlin.math.min(textEnd, maxEnd - width * reviewColumns.size)
+        var changed = false
+        reviewColumns.forEach { column ->
+            val newEnd = cursor + width
+            if (column.start != cursor || column.end != newEnd) {
+                column.start = cursor
+                column.end = newEnd
+                changed = true
+            }
+            cursor = newEnd
         }
-        reviewColumn.start = start
-        reviewColumn.end = end
-        return true
+        return changed
     }
 
     fun getReviewWidth(isTitle: Boolean): Float {
@@ -1164,7 +1259,11 @@ object ChapterProvider {
     }
 
     fun getReviewCountText(count: Int): String {
-        return if (count > 999) "999" else count.toString()
+        return when {
+            count < 0 -> ""
+            count > 999 -> "999"
+            else -> count.toString()
+        }
     }
 
     fun clearReviewIconCache() {

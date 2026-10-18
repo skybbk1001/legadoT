@@ -1,8 +1,8 @@
 package me.ag2s.epublib.epub;
 
-import android.util.Log;
+import me.ag2s.epublib.util.Log;
 
-import androidx.annotation.NonNull;
+
 
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
@@ -60,7 +60,6 @@ public class EpubReader {
         return readEpub(new ZipInputStream(in), encoding);
     }
 
-
     /**
      * Reads this EPUB without loading any resources into memory.
      *
@@ -69,17 +68,17 @@ public class EpubReader {
      * @return this Book without loading all resources into memory.
      * @throws IOException IOException
      */
-    public EpubBook readEpubLazy(@NonNull ZipFile zipFile, @NonNull String encoding)
+    public EpubBook readEpubLazy(ZipFile zipFile, String encoding)
             throws IOException {
         return readEpubLazy(zipFile, encoding, Arrays.asList(MediaTypes.mediaTypes));
     }
 
-    public EpubBook readEpubLazy(@NonNull AndroidZipFile zipFile, @NonNull String encoding)
+    public EpubBook readEpubLazy(AndroidZipFile zipFile, String encoding)
             throws IOException {
         return readEpubLazy(zipFile, encoding, Arrays.asList(MediaTypes.mediaTypes));
     }
 
-    public EpubBook readEpub(@NonNull ZipInputStream in, @NonNull String encoding) throws IOException {
+    public EpubBook readEpub(ZipInputStream in, String encoding) throws IOException {
         return readEpub(ResourcesLoader.loadResources(in, encoding));
     }
 
@@ -96,15 +95,15 @@ public class EpubReader {
      * @return this Book without loading all resources into memory.
      * @throws IOException IOException
      */
-    public EpubBook readEpubLazy(@NonNull ZipFile zipFile, @NonNull String encoding,
-                                 @NonNull List<MediaType> lazyLoadedTypes) throws IOException {
+    public EpubBook readEpubLazy(ZipFile zipFile, String encoding,
+                                 List<MediaType> lazyLoadedTypes) throws IOException {
         Resources resources = ResourcesLoader
                 .loadResources(new ZipFileWrapper(zipFile), encoding, lazyLoadedTypes);
         return readEpub(resources);
     }
 
-    public EpubBook readEpubLazy(@NonNull AndroidZipFile zipFile, @NonNull String encoding,
-                                 @NonNull List<MediaType> lazyLoadedTypes) throws IOException {
+    public EpubBook readEpubLazy(AndroidZipFile zipFile, String encoding,
+                                 List<MediaType> lazyLoadedTypes) throws IOException {
         Resources resources = ResourcesLoader
                 .loadResources(new ZipFileWrapper(zipFile), encoding, lazyLoadedTypes);
         return readEpub(resources);

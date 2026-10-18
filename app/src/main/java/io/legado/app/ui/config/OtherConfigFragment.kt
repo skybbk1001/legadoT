@@ -2,16 +2,22 @@ package io.legado.app.ui.config
 
 import android.annotation.SuppressLint
 import android.content.ComponentName
+import android.content.Intent
 import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import android.os.Bundle
+import android.text.InputType
 import android.view.View
+import androidx.activity.result.ActivityResultLauncher
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.view.postDelayed
 import androidx.fragment.app.activityViewModels
+import androidx.lifecycle.lifecycleScope
 import androidx.preference.ListPreference
 import androidx.preference.Preference
 import com.jeremyliao.liveeventbus.LiveEventBus
 import io.legado.app.R
+import io.legado.app.constant.AppLog
 import io.legado.app.constant.EventBus
 import io.legado.app.constant.PreferKey
 import io.legado.app.databinding.DialogEditTextBinding
@@ -19,7 +25,10 @@ import io.legado.app.help.AppFreezeMonitor
 import io.legado.app.help.DispatchersMonitor
 import io.legado.app.help.config.AppConfig
 import io.legado.app.help.config.LocalConfig
+import io.legado.app.help.nostr.NostrRelays
+import io.legado.app.help.nostr.NostrSignerStore
 import io.legado.app.lib.dialogs.alert
+import io.legado.app.lib.prefs.NostrSignerPreference
 import io.legado.app.lib.prefs.fragment.PreferenceFragment
 import io.legado.app.lib.theme.primaryColor
 import io.legado.app.model.CheckSource
@@ -28,6 +37,7 @@ import io.legado.app.receiver.SharedReceiverActivity
 import io.legado.app.service.WebService
 import io.legado.app.service.McpService
 import io.legado.app.ui.file.HandleFileContract
+import io.legado.app.ui.nostr.NostrSignerDialogController
 import io.legado.app.ui.widget.number.NumberPickerDialog
 import io.legado.app.utils.LogUtils
 import io.legado.app.utils.getPrefBoolean
@@ -40,7 +50,15 @@ import io.legado.app.utils.sendToClip
 import io.legado.app.utils.setEdgeEffectColor
 import io.legado.app.utils.showDialogFragment
 import io.legado.app.utils.toastOnUi
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import splitties.init.appCtx
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 /**
  * 其它设置
@@ -58,6 +76,17 @@ class OtherConfigFragment : PreferenceFragment(),
         it.uri?.let { treeUri ->
             AppConfig.defaultBookTreeUri = treeUri.toString()
         }
+    }
+
+    /** NIP-55：本机签名器用 get_public_key 回包（公钥 + 包名）完成连接。 */
+    private val nostrExternalSignerConnect: ActivityResultLauncher<Intent> =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            nostrSignerDialog.onNip55Result(result.resultCode, result.data)
+        }
+
+    /** 签名器连接弹窗：二维码配对 / 本机签名器（NIP-55） / bunker，与阅读页段评弹窗共用。 */
+    private val nostrSignerDialog by lazy {
+        NostrSignerDialogController(this) { intent -> nostrExternalSignerConnect.launch(intent) }
     }
 
     override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
@@ -79,6 +108,14 @@ class OtherConfigFragment : PreferenceFragment(),
         upPreferenceSummary(PreferKey.bitmapCacheSize, AppConfig.bitmapCacheSize.toString())
         upPreferenceSummary(PreferKey.imageRetainNum, AppConfig.imageRetainNum.toString())
         upPreferenceSummary(PreferKey.sourceEditMaxLine, AppConfig.sourceEditMaxLine.toString())
+        findPreference<Preference>("nostrSigner")?.let { preference ->
+            (preference as? NostrSignerPreference)?.apply {
+                onConnectClick = { nostrSignerDialog.show { updateNostrSignerSummary() } }
+                onLogoutClick = { logoutNostrSigner() }
+            }
+        }
+        updateNostrSignerSummary()
+        updateNostrRelaysSummary()
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
@@ -151,6 +188,9 @@ class OtherConfigFragment : PreferenceFragment(),
                 )
                 toastOnUi(getString(R.string.mcp_token_regenerated))
             }
+
+            "nostrRelays" -> showNostrRelaysDialog()
+            "nostrRelayDiscover" -> discoverNostrRelays()
 
             PreferKey.cleanCache -> clearCache()
             PreferKey.uploadRule -> showDialogFragment<DirectLinkUploadConfig>()
@@ -306,6 +346,128 @@ class OtherConfigFragment : PreferenceFragment(),
                 } else {
                     putPrefString(PreferKey.userAgent, userAgent)
                 }
+            }
+            cancelButton()
+        }
+    }
+
+    /** 退出当前使用的签名器；另一台已连接时由 store 的回退逻辑自动接上。 */
+    private fun logoutNostrSigner() {
+        val session = NostrSignerStore.load()
+        val external = NostrSignerStore.loadExternal()
+        if (session == null && external == null) return
+        alert(getString(R.string.nostr_signer_logout), getString(R.string.nostr_signer_logout_confirm)) {
+            okButton {
+                when (NostrSignerStore.activeSigner) {
+                    NostrSignerStore.SIGNER_NIP55 -> NostrSignerStore.clearExternal()
+                    NostrSignerStore.SIGNER_NIP46 -> NostrSignerStore.clear()
+                    else -> if (NostrSignerStore.load() != null) NostrSignerStore.clear()
+                    else NostrSignerStore.clearExternal()
+                }
+                updateNostrSignerSummary()
+                // 退出后清掉可能残留的「可首评」占位标记。
+                postEvent(EventBus.REFRESH_REVIEW_SUMMARY, "")
+                toastOnUi(getString(R.string.nostr_signer_disconnected))
+            }
+            cancelButton()
+        }
+    }
+
+    private fun updateNostrSignerSummary() {
+        findPreference<Preference>("nostrSigner")?.let { (it as? NostrSignerPreference)?.refresh() }
+    }
+
+    private fun updateNostrRelaysSummary() {
+        val preference = findPreference<Preference>("nostrRelays") ?: return
+        val relays = NostrRelays.effective()
+        val current = if (relays.isEmpty()) {
+            getString(R.string.nostr_relays_empty)
+        } else {
+            relays.joinToString(" ")
+        }
+        val builder = StringBuilder(getString(R.string.nostr_relays_summary, current))
+        val cached = NostrRelays.cached()
+        if (cached.isNotEmpty()) {
+            builder.append('\n')
+                .append(getString(R.string.nostr_relays_cached, cached.size))
+            val time = NostrRelays.cacheTime
+            if (time > 0) {
+                builder.append('\n')
+                    .append(
+                        getString(
+                            R.string.nostr_relays_last_check,
+                            SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault())
+                                .format(Date(time))
+                        )
+                    )
+            }
+        }
+        preference.summary = builder.toString()
+    }
+
+    /**
+     * 对「用户配置 + 内置种子」的中继逐个做 NIP-11 + WebSocket 健康检查，
+     * 过滤掉要求鉴权/付费/禁止写入或连不上的中继，把可用结果写回设置与缓存。
+     */
+    private fun discoverNostrRelays() {
+        var job: Job? = null
+        val dialog = alert(
+            getString(R.string.nostr_relays_discover),
+            getString(R.string.nostr_relays_discover_summary)
+        ) {
+            setCancelable(false)
+            negativeButton(R.string.cancel) { job?.cancel() }
+        }
+        job = viewLifecycleOwner.lifecycleScope.launch {
+            val result = runCatching {
+                withContext(Dispatchers.IO) {
+                    NostrRelays.discover { done, total, relay ->
+                        val message = getString(
+                            R.string.nostr_relays_discovering, done, total, relay
+                        )
+                        activity?.runOnUiThread {
+                            if (isAdded && dialog.isShowing) {
+                                dialog.setMessage(message)
+                            }
+                        }
+                    }
+                }
+            }.onFailure { if (it is CancellationException) throw it }
+            result.onSuccess { relays ->
+                dialog.dismiss()
+                updateNostrRelaysSummary()
+                toastOnUi(
+                    if (relays.isEmpty()) {
+                        getString(R.string.nostr_relays_discover_none)
+                    } else {
+                        getString(R.string.nostr_relays_discover_result, relays.size)
+                    }
+                )
+            }.onFailure {
+                AppLog.put("Nostr relay discovery failed", it, tag = "Nostr")
+                dialog.dismiss()
+                toastOnUi(
+                    getString(
+                        R.string.nostr_relays_discover_failed,
+                        it.localizedMessage.orEmpty()
+                    )
+                )
+            }
+        }
+    }
+
+    private fun showNostrRelaysDialog() {
+        alert(getString(R.string.nostr_relays)) {
+            val editBinding = DialogEditTextBinding.inflate(layoutInflater).apply {
+                editView.hint = getString(R.string.nostr_relays_hint)
+                editView.inputType = InputType.TYPE_CLASS_TEXT or
+                        InputType.TYPE_TEXT_FLAG_MULTI_LINE
+                editView.setText(AppConfig.nostrRelays)
+            }
+            customView { editBinding.root }
+            okButton {
+                AppConfig.nostrRelays = editBinding.editView.text?.toString().orEmpty()
+                updateNostrRelaysSummary()
             }
             cancelButton()
         }

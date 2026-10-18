@@ -9,9 +9,8 @@ import io.legado.app.data.entities.BaseSource
 import io.legado.app.data.entities.BookSource
 import io.legado.app.exception.NoStackTraceException
 import io.legado.app.help.CacheManager
-import io.legado.app.help.JsExtensions
+import io.legado.app.help.JsExtensionsAndroid
 import io.legado.app.help.http.CookieStore
-import io.legado.app.help.source.getShareScope
 import io.legado.app.model.SharedJsScope
 import io.legado.app.utils.GSON
 import org.htmlunit.corejs.javascript.Scriptable
@@ -30,7 +29,7 @@ import kotlin.coroutines.CoroutineContext
 class JsSourceEngine(
     private val source: BookSource,
     private val coroutineContext: CoroutineContext? = null,
-) : JsExtensions {
+) : JsExtensionsAndroid {
 
     override fun getSource(): BaseSource = source
 

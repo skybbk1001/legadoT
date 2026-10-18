@@ -16,7 +16,7 @@ class JsSourceTocWriteBackSentinelTest {
     private val jsSourceBook =
         File("src/main/java/io/legado/app/model/jsSource/JsSourceBook.kt").readText()
     private val bookChapterList =
-        File("src/main/java/io/legado/app/model/webBook/BookChapterList.kt").readText()
+        File("../shared/src/commonMain/kotlin/io/legado/app/model/webBook/BookChapterList.kt").readText()
 
     @Test
     fun jsTocPathSharesDeclarativeWriteBack() {

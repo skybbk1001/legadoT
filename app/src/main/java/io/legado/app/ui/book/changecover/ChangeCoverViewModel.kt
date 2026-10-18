@@ -14,6 +14,7 @@ import io.legado.app.data.entities.BookSourcePart
 import io.legado.app.data.entities.SearchBook
 import io.legado.app.help.config.AppConfig
 import io.legado.app.model.webBook.WebBook
+import io.legado.app.model.webBook.asSearchBooks
 import io.legado.app.utils.mapParallelSafe
 import kotlinx.coroutines.Dispatchers.IO
 import kotlinx.coroutines.ExecutorCoroutineDispatcher
@@ -139,7 +140,7 @@ class ChangeCoverViewModel(application: Application) : BaseViewModel(application
         }
         val searchBook = WebBook.searchBookAwait(
             source, name,
-            shouldBreak = { it > 0 }).firstOrNull() ?: return
+            shouldBreak = { it > 0 }).asSearchBooks().firstOrNull() ?: return
         if (searchBook.name == name && searchBook.author == author
             && !searchBook.coverUrl.isNullOrEmpty()
         ) {

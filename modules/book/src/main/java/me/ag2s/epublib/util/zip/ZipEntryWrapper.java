@@ -1,11 +1,11 @@
 package me.ag2s.epublib.util.zip;
 
-import androidx.annotation.NonNull;
+
 
 import java.util.zip.ZipEntry;
 
 public class ZipEntryWrapper {
-    @NonNull
+    
     private final Object zipEntry;
 
     public void checkType() {
@@ -16,15 +16,15 @@ public class ZipEntryWrapper {
         }
     }
 
-    public ZipEntryWrapper(@NonNull ZipEntry zipEntry) {
+    public ZipEntryWrapper(ZipEntry zipEntry) {
         this.zipEntry = zipEntry;
     }
 
-    public ZipEntryWrapper(@NonNull AndroidZipEntry zipEntry) {
+    public ZipEntryWrapper(AndroidZipEntry zipEntry) {
         this.zipEntry = zipEntry;
     }
 
-    public ZipEntryWrapper(@NonNull Object element) {
+    public ZipEntryWrapper(Object element) {
 
         this.zipEntry = element;
         checkType();
@@ -70,6 +70,5 @@ public class ZipEntryWrapper {
         }
         return -1;
     }
-
 
 }

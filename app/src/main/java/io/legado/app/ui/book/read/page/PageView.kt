@@ -352,6 +352,11 @@ class PageView(context: Context) : FrameLayout(context) {
         return binding.contentTextView.click(x, y - headerHeight)
     }
 
+    /** 仅命中段评气泡的点击（选中态下用）。 */
+    fun clickReviewColumn(x: Float, y: Float): Boolean {
+        return binding.contentTextView.clickReviewColumn(x, y - headerHeight)
+    }
+
     /**
      * 长按事件
      */
@@ -443,6 +448,11 @@ class PageView(context: Context) : FrameLayout(context) {
 
     fun createHighlight(style: HighlightStyle): BookHighlight? {
         return binding.contentTextView.createHighlight(style)
+    }
+
+    /** 选区起点段落的段评入口信息。 */
+    fun selectedReviewTarget(): ContentTextView.ReviewTarget? {
+        return binding.contentTextView.selectedReviewTarget()
     }
 
     fun relativePage(relativePagePos: Int): TextPage {

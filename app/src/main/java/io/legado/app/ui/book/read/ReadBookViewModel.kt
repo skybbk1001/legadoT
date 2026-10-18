@@ -54,6 +54,8 @@ import java.io.File
 import java.io.FileInputStream
 import java.io.FileNotFoundException
 import java.io.FileOutputStream
+import io.legado.app.data.entities.delete
+import io.legado.app.data.entities.migrateTo
 
 /**
  * 阅读界面数据处理

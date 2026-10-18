@@ -70,6 +70,8 @@ import splitties.systemservices.notificationManager
 import splitties.systemservices.powerManager
 import splitties.systemservices.telephonyManager
 import splitties.systemservices.wifiManager
+import io.legado.app.data.entities.getDisplayTitle
+import io.legado.app.data.entities.getUseReplaceRule
 
 /**
  * 朗读服务

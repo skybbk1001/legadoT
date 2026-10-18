@@ -3,6 +3,7 @@ package io.legado.app.ui.main.bookshelf
 import androidx.core.os.bundleOf
 import androidx.recyclerview.widget.DiffUtil
 import io.legado.app.data.entities.Book
+import io.legado.app.data.entities.getUnreadChapterNum
 
 /**
  * 书架 Book 项的 Diff 回调公共实现（R1 由 style1/style2 两份近似拷贝合一,采 style1 版）。

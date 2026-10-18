@@ -17,6 +17,7 @@ import io.legado.app.help.http.okHttpClientManga
 import io.legado.app.help.source.SourceHelp
 import io.legado.app.model.ReadManga
 import io.legado.app.model.analyzeRule.AnalyzeUrl
+import io.legado.app.model.analyzeRule.getGlideUrl
 import io.legado.app.utils.ImageUtils
 import io.legado.app.utils.isWifiConnect
 import kotlinx.coroutines.CoroutineScope

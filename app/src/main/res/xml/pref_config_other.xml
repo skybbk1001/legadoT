@@ -48,6 +48,32 @@
     </io.legado.app.lib.prefs.PreferenceCategory>
 
     <io.legado.app.lib.prefs.PreferenceCategory
+        android:title="@string/nostr_settings_category"
+        app:allowDividerAbove="false"
+        app:allowDividerBelow="false">
+
+        <io.legado.app.lib.prefs.SwitchPreference
+            android:defaultValue="true"
+            android:key="nostrReview"
+            android:summary="@string/nostr_review_summary"
+            android:title="@string/nostr_review" />
+
+        <io.legado.app.lib.prefs.NostrSignerPreference
+            android:key="nostrSigner"
+            android:title="@string/nostr_signer" />
+
+        <io.legado.app.lib.prefs.Preference
+            android:key="nostrRelays"
+            android:summary="@string/nostr_relays_empty"
+            android:title="@string/nostr_relays" />
+
+        <io.legado.app.lib.prefs.Preference
+            android:key="nostrRelayDiscover"
+            android:summary="@string/nostr_relays_discover_summary"
+            android:title="@string/nostr_relays_discover" />
+    </io.legado.app.lib.prefs.PreferenceCategory>
+
+    <io.legado.app.lib.prefs.PreferenceCategory
         android:title="@string/other_setting"
         app:allowDividerBelow="false">
 

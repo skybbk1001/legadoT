@@ -19,8 +19,6 @@ package me.ag2s.epublib.util.commons.io;
 
 import static me.ag2s.epublib.util.IOUtil.EOF;
 
-import android.os.Build;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Arrays;
@@ -158,9 +156,7 @@ public class BOMInputStream extends ProxyInputStream {
         this.include = include;
         final List<ByteOrderMark> list = Arrays.asList(boms);
         // Sort the BOMs to match the longest BOM first because some BOMs have the same starting two bytes.
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            list.sort(ByteOrderMarkLengthComparator);
-        }
+        list.sort(ByteOrderMarkLengthComparator);
         this.boms = list;
 
     }

@@ -23,6 +23,9 @@
     <color name="background_card">#FFFFFF</color>
     <color name="background_menu">#F2F2F2</color>
 
+    <color name="review_sort_track">#E8E8E8</color>
+    <color name="review_sort_thumb">#FFFFFF</color>
+
     <color name="transparent">#00000000</color>
 
     <color name="transparent10">#10000000</color>

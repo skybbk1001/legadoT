@@ -1,6 +1,6 @@
 package me.ag2s.epublib.domain;
 
-import android.util.Log;
+import me.ag2s.epublib.util.Log;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;

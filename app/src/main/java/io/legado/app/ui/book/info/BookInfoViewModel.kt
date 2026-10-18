@@ -45,6 +45,9 @@ import io.legado.app.utils.postEvent
 import io.legado.app.utils.toastOnUi
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers.IO
+import io.legado.app.data.entities.delete
+import io.legado.app.data.entities.migrateTo
+import io.legado.app.data.entities.save
 
 class BookInfoViewModel(application: Application) : BaseViewModel(application) {
     val bookData = MutableLiveData<Book>()

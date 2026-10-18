@@ -32,6 +32,8 @@ import splitties.init.appCtx
 import java.io.File
 import java.util.WeakHashMap
 import java.util.concurrent.TimeUnit
+import io.legado.app.data.entities.delete
+import io.legado.app.data.entities.save
 
 object BookController {
 

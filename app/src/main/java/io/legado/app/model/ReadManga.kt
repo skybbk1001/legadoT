@@ -40,6 +40,8 @@ import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import kotlin.math.min
+import io.legado.app.data.entities.getDisplayTitle
+import io.legado.app.data.entities.getUseReplaceRule
 
 @Suppress("MemberVisibilityCanBePrivate")
 object ReadManga : CoroutineScope by MainScope() {

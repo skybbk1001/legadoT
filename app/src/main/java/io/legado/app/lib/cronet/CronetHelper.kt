@@ -8,6 +8,7 @@ import io.legado.app.constant.AppLog
 import io.legado.app.help.http.CookieManager.cookieJarHeader
 import io.legado.app.help.http.SSLHelper
 import io.legado.app.help.http.okHttpClient
+import io.legado.app.help.http.unsafeTrustManagerExtensions
 import io.legado.app.utils.DebugLog
 import io.legado.app.utils.externalCache
 import okhttp3.Headers

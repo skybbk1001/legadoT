@@ -31,28 +31,28 @@ data class SearchBook(
     @PrimaryKey
     override var bookUrl: String = "",
     /** 书源 */
-    var origin: String = "",
-    var originName: String = "",
+    override var origin: String = "",
+    override var originName: String = "",
     /** BookType */
-    var type: Int = BookType.text,
+    override var type: Int = BookType.text,
     override var name: String = "",
     override var author: String = "",
     override var kind: String? = null,
-    var coverUrl: String? = null,
-    var intro: String? = null,
+    override var coverUrl: String? = null,
+    override var intro: String? = null,
     override var wordCount: String? = null,
-    var latestChapterTitle: String? = null,
+    override var latestChapterTitle: String? = null,
     /** 目录页Url (toc=table of Contents) */
     var tocUrl: String = "",
     var time: Long = System.currentTimeMillis(),
     override var variable: String? = null,
-    var originOrder: Int = 0,
+    override var originOrder: Int = 0,
     var chapterWordCountText: String? = null,
     @ColumnInfo(defaultValue = "-1")
     var chapterWordCount: Int = -1,
     @ColumnInfo(defaultValue = "-1")
     var respondTime: Int = -1
-) : Parcelable, BaseBook, Comparable<SearchBook> {
+) : Parcelable, BaseBook, SearchBookContract, Comparable<SearchBook> {
 
     @Ignore
     @IgnoredOnParcel
@@ -82,7 +82,7 @@ data class SearchBook(
     @IgnoredOnParcel
     val origins: LinkedHashSet<String> by lazy { linkedSetOf(origin) }
 
-    fun addOrigin(origin: String) {
+    override fun addOrigin(origin: String) {
         origins.add(origin)
     }
 
@@ -117,7 +117,7 @@ data class SearchBook(
         return type and BookType.allBookTypeLocal == bookType and BookType.allBookTypeLocal
     }
 
-    fun toBook() = Book(
+    override fun toBook() = Book(
         name = name,
         author = author,
         kind = kind,

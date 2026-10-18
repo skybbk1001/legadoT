@@ -20,6 +20,9 @@ import splitties.init.appCtx
 import java.lang.ref.WeakReference
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.regex.Pattern
+import io.legado.app.data.entities.getDisplayTitle
+import io.legado.app.data.entities.getFileName
+import io.legado.app.data.entities.getUseReplaceRule
 
 class ContentProcessor private constructor(
     private val bookName: String,

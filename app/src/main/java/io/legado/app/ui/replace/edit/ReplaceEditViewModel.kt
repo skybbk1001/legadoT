@@ -8,6 +8,7 @@ import io.legado.app.data.entities.ReplaceRule
 import io.legado.app.exception.NoStackTraceException
 import io.legado.app.utils.*
 import kotlinx.coroutines.Dispatchers
+import io.legado.app.data.entities.checkValid
 
 class ReplaceEditViewModel(application: Application) : BaseViewModel(application) {
 

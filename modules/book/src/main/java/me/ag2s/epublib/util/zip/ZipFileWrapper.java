@@ -1,7 +1,6 @@
 package me.ag2s.epublib.util.zip;
 
 
-import androidx.annotation.NonNull;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -13,9 +12,8 @@ import java.util.zip.ZipFile;
  */
 
 public class ZipFileWrapper {
-    @NonNull
+    
     private final Object zipFile;
-
 
     public void checkType() {
         if (zipFile instanceof java.util.zip.ZipFile || zipFile instanceof AndroidZipFile) {
@@ -24,12 +22,12 @@ public class ZipFileWrapper {
         }
     }
 
-    public ZipFileWrapper(@NonNull ZipFile zipFile) {
+    public ZipFileWrapper(ZipFile zipFile) {
         this.zipFile = zipFile;
         checkType();
     }
 
-    public ZipFileWrapper(@NonNull AndroidZipFile zipFile) {
+    public ZipFileWrapper(AndroidZipFile zipFile) {
         this.zipFile = zipFile;
         checkType();
     }
@@ -98,6 +96,5 @@ public class ZipFileWrapper {
             ((AndroidZipFile) zipFile).close();
         }
     }
-
 
 }

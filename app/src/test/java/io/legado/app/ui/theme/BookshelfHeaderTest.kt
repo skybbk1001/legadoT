@@ -15,7 +15,7 @@ class BookshelfHeaderTest {
             "@+id/tv_continue_name", "@+id/tv_continue_chapter", "@+id/tv_continue_percent",
         ).all { header.contains(it) })
         assertTrue("Display 大标题已退役", !header.contains("tv_shelf_title"))
-        val ext = File("src/main/java/io/legado/app/help/book/BookExtensions.kt").readText()
+        val ext = File("../shared/src/commonMain/kotlin/io/legado/app/help/book/BookExtensions.kt").readText()
         assertTrue("readProgress 扩展", ext.contains("fun Book.readProgress"))
     }
 

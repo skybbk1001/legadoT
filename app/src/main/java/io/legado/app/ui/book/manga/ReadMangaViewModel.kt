@@ -37,6 +37,8 @@ import kotlinx.coroutines.flow.onEmpty
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.take
 import splitties.init.appCtx
+import io.legado.app.data.entities.delete
+import io.legado.app.data.entities.migrateTo
 
 class ReadMangaViewModel(application: Application) : BaseViewModel(application) {
 

@@ -14,7 +14,7 @@ import java.io.File
 class VolumePlaceholderContentSentinelTest {
 
     private val webBook =
-        File("src/main/java/io/legado/app/model/webBook/WebBook.kt").readText()
+        File("../shared/src/commonMain/kotlin/io/legado/app/model/webBook/WebBook.kt").readText()
     private val jsSourceBook =
         File("src/main/java/io/legado/app/model/jsSource/JsSourceBook.kt").readText()
 

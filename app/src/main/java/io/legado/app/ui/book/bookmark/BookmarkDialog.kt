@@ -9,6 +9,8 @@ import io.legado.app.base.BaseDialogFragment
 import io.legado.app.data.appDb
 import io.legado.app.data.entities.Bookmark
 import io.legado.app.databinding.DialogBookmarkBinding
+import io.legado.app.utils.GSON
+import io.legado.app.utils.fromJsonObject
 import io.legado.app.utils.setLayout
 import io.legado.app.utils.viewbindingdelegate.viewBinding
 import io.legado.app.utils.visible
@@ -21,7 +23,7 @@ class BookmarkDialog() : BaseDialogFragment(R.layout.dialog_bookmark, true) {
     constructor(bookmark: Bookmark, editPos: Int = -1) : this() {
         arguments = Bundle().apply {
             putInt("editPos", editPos)
-            putParcelable("bookmark", bookmark)
+            putString("bookmark", GSON.toJson(bookmark))
         }
     }
 
@@ -38,8 +40,7 @@ class BookmarkDialog() : BaseDialogFragment(R.layout.dialog_bookmark, true) {
             return
         }
 
-        @Suppress("DEPRECATION")
-        val bookmark = arguments.getParcelable<Bookmark>("bookmark")
+        val bookmark = GSON.fromJsonObject<Bookmark>(arguments.getString("bookmark")).getOrNull()
         bookmark ?: let {
             dismiss()
             return

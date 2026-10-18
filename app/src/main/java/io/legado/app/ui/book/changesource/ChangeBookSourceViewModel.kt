@@ -25,6 +25,7 @@ import io.legado.app.help.config.SourceConfig
 import io.legado.app.help.coroutine.Coroutine
 import io.legado.app.help.source.SourceHelp
 import io.legado.app.model.webBook.WebBook
+import io.legado.app.model.webBook.asSearchBooks
 import io.legado.app.utils.internString
 import io.legado.app.utils.mapParallel
 import io.legado.app.utils.mapParallelSafe
@@ -56,6 +57,7 @@ import java.util.Collections
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
 import kotlin.math.min
+import io.legado.app.data.entities.toSearchBook
 
 @Suppress("MemberVisibilityCanBePrivate")
 open class ChangeBookSourceViewModel(application: Application) : BaseViewModel(application) {
@@ -266,7 +268,7 @@ open class ChangeBookSourceViewModel(application: Application) : BaseViewModel(a
             source, name,
             filter = { fName, fAuthor ->
                 fName == name && (!checkAuthor || fAuthor.contains(author))
-            })
+            }).asSearchBooks()
         resultBooks.forEach { searchBook ->
             when {
                 loadInfo || loadToc || loadWordCount -> {

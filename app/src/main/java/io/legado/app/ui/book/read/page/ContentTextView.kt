@@ -211,6 +211,23 @@ class ContentTextView(context: Context, attrs: AttributeSet?) : View(context, at
     }
 
     /**
+     * 仅处理「点中段评气泡」：选中态下点气泡时用，避免被取消选择的默认流程吃掉。
+     */
+    fun clickReviewColumn(x: Float, y: Float): Boolean {
+        var handled = false
+        touch(x, y) { _, _, _, textLine, column ->
+            if (column is ReviewColumn) {
+                callBack.onReviewClick(
+                    if (column.reviewId != 0) column.reviewId else resolveReviewId(textLine),
+                    column.count
+                )
+                handled = true
+            }
+        }
+        return handled
+    }
+
+    /**
      * 长按
      */
     fun longPress(
@@ -248,7 +265,7 @@ class ContentTextView(context: Context, attrs: AttributeSet?) : View(context, at
                 }
 
                 is ReviewColumn -> {
-                    val reviewId = resolveReviewId(textLine)
+                    val reviewId = if (column.reviewId != 0) column.reviewId else resolveReviewId(textLine)
                     callBack.onReviewClick(reviewId, column.count)
                     handled = true
                 }
@@ -872,6 +889,27 @@ class ContentTextView(context: Context, attrs: AttributeSet?) : View(context, at
         fun onHighlightRuleClick(rule: HighlightRule, x: Float, y: Float)
         fun onLongScreenshotTouchEvent(event: MotionEvent): Boolean
     }
+
+    /** 选区起点所在段落的段评入口信息；未选择或无有效段落时返回 null。 */
+    fun selectedReviewTarget(): ReviewTarget? {
+        if (!selectStart.isSelected()) return null
+        val page = relativePage(selectStart.relativePagePos)
+        val line = page.lines.getOrNull(selectStart.lineIndex) ?: return null
+        val reviewId = resolveReviewId(line)
+        if (reviewId <= 0) return null
+        return ReviewTarget(
+            chapterIndex = page.chapterIndex,
+            reviewId = reviewId,
+            count = ChapterProvider.getReviewCount(
+                paragraphNum = line.paragraphNum,
+                isTitle = line.isTitle,
+                titleOffset = line.reviewTitleOffset,
+                chapterIndex = page.chapterIndex
+            )
+        )
+    }
+
+    data class ReviewTarget(val chapterIndex: Int, val reviewId: Int, val count: Int)
 
     private fun resolveReviewId(textLine: TextLine): Int {
         if (textLine.isTitle) return -1

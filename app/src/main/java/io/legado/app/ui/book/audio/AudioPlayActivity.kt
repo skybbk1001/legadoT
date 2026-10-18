@@ -73,6 +73,12 @@ import kotlinx.coroutines.withContext
 import splitties.views.onLongClick
 import java.io.File
 import java.util.Locale
+import io.legado.app.data.entities.delete
+import io.legado.app.data.entities.getAudioIntroMs
+import io.legado.app.data.entities.getAudioOutroMs
+import io.legado.app.data.entities.getAudioSkipEnabled
+import io.legado.app.data.entities.migrateTo
+import io.legado.app.data.entities.save
 
 /**
  * 音频播放

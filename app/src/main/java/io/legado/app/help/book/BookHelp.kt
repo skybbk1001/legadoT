@@ -10,6 +10,7 @@ import io.legado.app.constant.EventBus
 import io.legado.app.data.appDb
 import io.legado.app.data.entities.Book
 import io.legado.app.data.entities.BookChapter
+import io.legado.app.data.entities.BaseSource
 import io.legado.app.data.entities.BookSource
 import io.legado.app.help.config.AppConfig
 import io.legado.app.model.analyzeRule.AnalyzeUrl
@@ -51,6 +52,8 @@ import kotlin.coroutines.coroutineContext
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
+import io.legado.app.data.entities.getFileName
+import io.legado.app.data.entities.getFolderName
 
 @Suppress("unused", "ConstPropertyName")
 object BookHelp {
@@ -158,7 +161,7 @@ object BookHelp {
     }
 
     suspend fun saveContent(
-        bookSource: BookSource,
+        bookSource: BaseSource,
         book: Book,
         bookChapter: BookChapter,
         content: String
@@ -472,21 +475,17 @@ object BookHelp {
     }
 
     /**
-     * 格式化书名
+     * 格式化书名(纯逻辑已迁 shared BookFormat, 保留成员委托以维持调用点)
      */
     fun formatBookName(name: String): String {
-        return name
-            .replace(AppPattern.nameRegex, "")
-            .trim { it <= ' ' }
+        return BookFormat.formatBookName(name)
     }
 
     /**
-     * 格式化作者
+     * 格式化作者(纯逻辑已迁 shared BookFormat, 保留成员委托以维持调用点)
      */
     fun formatBookAuthor(author: String): String {
-        return author
-            .replace(AppPattern.authorRegex, "")
-            .trim { it <= ' ' }
+        return BookFormat.formatBookAuthor(author)
     }
 
     private val jaccardSimilarity by lazy {

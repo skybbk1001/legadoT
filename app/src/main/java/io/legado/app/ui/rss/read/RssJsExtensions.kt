@@ -5,7 +5,7 @@ import io.legado.app.data.appDb
 import io.legado.app.data.entities.BaseSource
 import io.legado.app.data.entities.BookSource
 import io.legado.app.data.entities.RssSource
-import io.legado.app.help.JsExtensions
+import io.legado.app.help.JsExtensionsAndroid
 import io.legado.app.ui.association.AddToBookshelfDialog
 import io.legado.app.ui.book.explore.ExploreShowActivity
 import io.legado.app.ui.book.search.SearchActivity
@@ -21,7 +21,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 @Suppress("unused")
-class RssJsExtensions(private val activity: ReadRssActivity) : JsExtensions {
+class RssJsExtensions(private val activity: ReadRssActivity) : JsExtensionsAndroid {
 
     override fun getSource(): BaseSource? {
         return activity.getSource()

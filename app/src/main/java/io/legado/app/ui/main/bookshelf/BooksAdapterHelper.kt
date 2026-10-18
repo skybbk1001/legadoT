@@ -20,6 +20,7 @@ import io.legado.app.utils.gone
 import io.legado.app.utils.invisible
 import io.legado.app.utils.toTimeAgo
 import io.legado.app.utils.visible
+import io.legado.app.data.entities.getUnreadChapterNum
 
 /**
  * 书架封面上"未读角标 + 刷新加载动画"随 Book 状态更新的公共实现，

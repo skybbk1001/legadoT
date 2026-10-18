@@ -29,6 +29,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import java.util.concurrent.ConcurrentHashMap
+import io.legado.app.data.entities.getDisplayTitle
+import io.legado.app.data.entities.getFileName
+import io.legado.app.data.entities.getUseReplaceRule
 
 class ChapterListAdapter(context: Context, val callback: Callback) :
     DiffRecyclerAdapter<TocListItem, ItemChapterListBinding>(context) {

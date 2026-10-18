@@ -105,12 +105,13 @@ class SearchModel(private val scope: CoroutineScope, private val callBack: CallB
                     callBack.onSearchProgress(searchedCount.incrementAndGet(), total)
                 }
             }.onEach { items ->
-                for (book in items) {
+                val searchBookItems = items.asSearchBooks()
+                for (book in searchBookItems) {
                     book.releaseHtmlData()
                 }
-                hasMore = hasMore || items.isNotEmpty()
-                appDb.searchBookDao.insert(*items.toTypedArray())
-                mergeItems(items, precision)
+                hasMore = hasMore || searchBookItems.isNotEmpty()
+                appDb.searchBookDao.insert(*searchBookItems.toTypedArray())
+                mergeItems(searchBookItems, precision)
                 currentCoroutineContext().ensureActive()
                 callBack.onSearchSuccess(searchBooks)
             }.onCompletion {

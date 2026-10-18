@@ -2,6 +2,7 @@ package io.legado.app.ui.book.read
 
 import android.annotation.SuppressLint
 import android.app.DatePickerDialog
+import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.os.Build
 import android.os.Bundle
@@ -9,6 +10,7 @@ import android.view.KeyEvent
 import android.view.View
 import android.view.WindowInsets
 import android.view.WindowManager
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.isVisible
@@ -24,6 +26,7 @@ import io.legado.app.databinding.DialogSimulatedReadingBinding
 import io.legado.app.help.config.AppConfig
 import io.legado.app.help.config.LocalConfig
 import io.legado.app.help.config.ReadBookConfig
+import io.legado.app.help.nostr.NostrNip55Client
 import io.legado.app.lib.dialogs.alert
 import io.legado.app.lib.dialogs.selector
 import io.legado.app.lib.theme.primaryColor
@@ -47,6 +50,7 @@ import io.legado.app.utils.showDialogFragment
 import io.legado.app.utils.viewbindingdelegate.viewBinding
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
+import io.legado.app.data.entities.save
 
 /**
  * 阅读界面
@@ -76,6 +80,23 @@ abstract class BaseReadBookActivity :
                 } ?: ReadBook.upMsg("找不到文件")
             }
         } ?: ReadBook.upMsg("没有权限访问")
+    }
+
+    // NIP-55 签名请求必须由前台界面打开签名器 App，结果按请求 id 交回等待中的发布协程。
+    private val nostrSignerLauncher =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+            NostrNip55Client.onActivityResult(it.resultCode, it.data)
+        }
+    private val nostrSignerLaunch: (Intent) -> Unit = { nostrSignerLauncher.launch(it) }
+
+    override fun onStart() {
+        super.onStart()
+        NostrNip55Client.registerLauncher(nostrSignerLaunch)
+    }
+
+    override fun onStop() {
+        NostrNip55Client.unregisterLauncher(nostrSignerLaunch)
+        super.onStop()
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {

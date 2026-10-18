@@ -2,6 +2,7 @@ package io.legado.app.web.mcp
 
 import io.legado.app.api.ReturnData
 import io.legado.app.constant.AppConst
+import io.legado.app.constant.appInfo
 import io.modelcontextprotocol.kotlin.sdk.server.ClientConnection
 import io.modelcontextprotocol.kotlin.sdk.server.Server
 import io.modelcontextprotocol.kotlin.sdk.server.ServerOptions

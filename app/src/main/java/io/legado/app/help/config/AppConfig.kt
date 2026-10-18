@@ -3,8 +3,10 @@ package io.legado.app.help.config
 import android.content.SharedPreferences
 import android.os.Build
 import io.legado.app.BuildConfig
+import io.legado.app.R
 import io.legado.app.constant.AppConst
 import io.legado.app.constant.PreferKey
+import io.legado.app.constant.sysElevation
 import io.legado.app.data.appDb
 import io.legado.app.utils.canvasrecorder.CanvasRecorderFactory
 import io.legado.app.utils.getPrefBoolean
@@ -20,6 +22,7 @@ import io.legado.app.utils.removePref
 import io.legado.app.utils.sysConfiguration
 import io.legado.app.utils.toastOnUi
 import splitties.init.appCtx
+import io.legado.app.data.entities.getRealBookSort
 
 @Suppress("MemberVisibilityCanBePrivate", "ConstPropertyName")
 object AppConfig : SharedPreferences.OnSharedPreferenceChangeListener {
@@ -42,6 +45,7 @@ object AppConfig : SharedPreferences.OnSharedPreferenceChangeListener {
             && appCtx.getPrefBoolean(PreferKey.optimizeRender, false)
     var recordLog = appCtx.getPrefBoolean(PreferKey.recordLog)
     var recordHttpLog = appCtx.getPrefBoolean(PreferKey.recordHttpLog)
+    var nostrReviewEnabled = appCtx.getPrefBoolean(PreferKey.nostrReview, true)
 
     override fun onSharedPreferenceChanged(sharedPreferences: SharedPreferences?, key: String?) {
         when (key) {
@@ -95,6 +99,8 @@ object AppConfig : SharedPreferences.OnSharedPreferenceChangeListener {
 
             PreferKey.recordLog -> recordLog = appCtx.getPrefBoolean(PreferKey.recordLog)
             PreferKey.recordHttpLog -> recordHttpLog = appCtx.getPrefBoolean(PreferKey.recordHttpLog)
+            PreferKey.nostrReview -> nostrReviewEnabled =
+                appCtx.getPrefBoolean(PreferKey.nostrReview, true)
 
         }
     }
@@ -411,6 +417,60 @@ object AppConfig : SharedPreferences.OnSharedPreferenceChangeListener {
         get() = appCtx.getPrefString(PreferKey.mcpToken).orEmpty()
         set(value) {
             appCtx.putPrefString(PreferKey.mcpToken, value)
+        }
+
+    /**
+     * 用户配置的 Nostr 中继（每行一个）。仅在 bunker:// 未自带中继的场景使用，
+     * 例如生成配对二维码、读取公开段评。
+     */
+    var nostrRelays: String
+        get() = appCtx.getPrefString(PreferKey.nostrRelays) ?: seedNostrRelays
+        set(value) {
+            appCtx.putPrefString(PreferKey.nostrRelays, value)
+        }
+
+    /** 出厂种子中继，供自动发现使用。 */
+    val seedNostrRelays: String
+        get() = appCtx.resources.getStringArray(R.array.nostr_seed_relays)
+            .joinToString("\n")
+
+    /** 用户显式配置的中继，不做种子回退；为空表示还没配置过。 */
+    val nostrRelaysConfigured: String
+        get() = appCtx.getPrefString(PreferKey.nostrRelays).orEmpty()
+
+    /** 健康检查通过的中继（每行一个）。 */
+    var nostrRelayCache: String
+        get() = appCtx.getPrefString(PreferKey.nostrRelayCache).orEmpty()
+        set(value) {
+            appCtx.putPrefString(PreferKey.nostrRelayCache, value)
+        }
+
+    /** 上次健康检查时间戳，0 表示从未检测过。 */
+    var nostrRelayCacheTime: Long
+        get() = appCtx.getPrefLong(PreferKey.nostrRelayCacheTime)
+        set(value) {
+            appCtx.putPrefLong(PreferKey.nostrRelayCacheTime, value)
+        }
+
+    /** 已应用到的出厂种子中继版本，用于把旧版本写入配置的失效默认中继替换掉。 */
+    var nostrRelaySeedVersion: Int
+        get() = appCtx.getPrefInt(PreferKey.nostrRelaySeedVersion)
+        set(value) {
+            appCtx.putPrefInt(PreferKey.nostrRelaySeedVersion, value)
+        }
+
+    /**
+     * 从备份恢复的 bunker URI（不含客户端私钥）。因会话密钥存在 AndroidKeyStore，
+     * 跨设备无法直接解密，只能把地址带过来提示用户重新连接签名器；连接成功后清除。
+     */
+    var nostrRestoredBunkerUri: String?
+        get() = appCtx.getPrefString(PreferKey.nostrRestoredBunkerUri)
+        set(value) {
+            if (value.isNullOrBlank()) {
+                appCtx.removePref(PreferKey.nostrRestoredBunkerUri)
+            } else {
+                appCtx.putPrefString(PreferKey.nostrRestoredBunkerUri, value)
+            }
         }
 
     var tocUiUseReplace: Boolean

@@ -3,6 +3,7 @@ package io.legado.app.help.update
 import android.os.Build
 import androidx.annotation.Keep
 import io.legado.app.constant.AppConst
+import io.legado.app.constant.appInfo
 import io.legado.app.exception.NoStackTraceException
 import io.legado.app.help.config.AppConfig
 import io.legado.app.help.coroutine.Coroutine

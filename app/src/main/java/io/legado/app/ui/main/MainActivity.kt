@@ -19,10 +19,11 @@ import com.google.android.material.bottomnavigation.BottomNavigationView
 import io.legado.app.BuildConfig
 import io.legado.app.R
 import io.legado.app.base.VMBaseActivity
-import io.legado.app.constant.AppConst.appInfo
 import io.legado.app.constant.AppLog
 import io.legado.app.constant.EventBus
 import io.legado.app.constant.PreferKey
+import io.legado.app.constant.AppConst
+import io.legado.app.constant.appInfo
 import io.legado.app.data.entities.Book
 import io.legado.app.databinding.ActivityMainBinding
 import io.legado.app.databinding.DialogEditTextBinding
@@ -309,11 +310,11 @@ class MainActivity : VMBaseActivity<ActivityMainBinding, MainViewModel>(),
      * 版本更新日志
      */
     private suspend fun upVersion() = suspendCancellableCoroutine sc@{ block ->
-        if (LocalConfig.versionCode == appInfo.versionCode) {
+        if (LocalConfig.versionCode == AppConst.appInfo.versionCode) {
             block.resume(null)
             return@sc
         }
-        LocalConfig.versionCode = appInfo.versionCode
+        LocalConfig.versionCode = AppConst.appInfo.versionCode
         if (LocalConfig.isFirstOpenApp) {
             val help = String(assets.open("web/help/md/appHelp.md").readBytes())
             val dialog = TextDialog(getString(R.string.help), help, TextDialog.Mode.MD)

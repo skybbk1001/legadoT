@@ -1,6 +1,5 @@
 package io.legado.app.data.entities
 
-import android.os.Parcelable
 import android.text.TextUtils
 import androidx.room.ColumnInfo
 import androidx.room.Entity
@@ -19,10 +18,8 @@ import io.legado.app.data.entities.rule.TocRule
 import io.legado.app.utils.GSON
 import io.legado.app.utils.fromJsonObject
 import io.legado.app.utils.splitNotBlank
-import kotlinx.parcelize.Parcelize
 
 @Suppress("unused")
-@Parcelize
 @TypeConverters(BookSource.Converters::class)
 @Entity(
     tableName = "book_sources",
@@ -31,19 +28,19 @@ import kotlinx.parcelize.Parcelize
 data class BookSource(
     // 地址，包括 http/https
     @PrimaryKey
-    var bookSourceUrl: String = "",
+    override var bookSourceUrl: String = "",
     // 名称
-    var bookSourceName: String = "",
+    override var bookSourceName: String = "",
     // 分组
     var bookSourceGroup: String? = null,
     // 类型，0 文本，1 音频, 2 图片, 3 文件（指的是类似知轩藏书只提供下载的网站）
     @BookSourceType.Type
-    var bookSourceType: Int = 0,
+    override var bookSourceType: Int = 0,
     // 详情页url正则
-    var bookUrlPattern: String? = null,
+    override var bookUrlPattern: String? = null,
     // 手动排序编号
     @ColumnInfo(defaultValue = "0")
-    var customOrder: Int = 0,
+    override var customOrder: Int = 0,
     // 是否启用
     @ColumnInfo(defaultValue = "1")
     var enabled: Boolean = true,
@@ -64,7 +61,7 @@ data class BookSource(
     // 登录UI
     override var loginUi: String? = null,
     // 登录检测js
-    var loginCheckJs: String? = null,
+    override var loginCheckJs: String? = null,
     // 封面解密js
     var coverDecodeJs: String? = null,
     // 注释
@@ -84,13 +81,13 @@ data class BookSource(
     // 发现规则
     var ruleExplore: ExploreRule? = null,
     // 搜索url
-    var searchUrl: String? = null,
+    override var searchUrl: String? = null,
     // 搜索规则
     var ruleSearch: SearchRule? = null,
     // 书籍信息页规则
     var ruleBookInfo: BookInfoRule? = null,
     // 目录页规则
-    var ruleToc: TocRule? = null,
+    override var ruleToc: TocRule? = null,
     // 正文页规则
     var ruleContent: ContentRule? = null,
     // 是否监听事件来执行回调规则
@@ -103,7 +100,7 @@ data class BookSource(
     var ruleReview: ReviewRule? = null,
     // JS 源主脚本;非空即为JS源(spec: docs/superpowers/specs/2026-07-07-js-single-file-source-design.md)
     var mainJs: String? = null,
-) : Parcelable, BaseSource {
+) : BaseSource, BookSourceContract {
 
     override fun getTag(): String {
         return bookSourceName
@@ -121,35 +118,35 @@ data class BookSource(
         return if (other is BookSource) other.bookSourceUrl == bookSourceUrl else false
     }
 
-    fun getSearchRule(): SearchRule {
+    override fun getSearchRule(): SearchRule {
         ruleSearch?.let { return it }
         val rule = SearchRule()
         ruleSearch = rule
         return rule
     }
 
-    fun getExploreRule(): ExploreRule {
+    override fun getExploreRule(): ExploreRule {
         ruleExplore?.let { return it }
         val rule = ExploreRule()
         ruleExplore = rule
         return rule
     }
 
-    fun getBookInfoRule(): BookInfoRule {
+    override fun getBookInfoRule(): BookInfoRule {
         ruleBookInfo?.let { return it }
         val rule = BookInfoRule()
         ruleBookInfo = rule
         return rule
     }
 
-    fun getTocRule(): TocRule {
+    override fun getTocRule(): TocRule {
         ruleToc?.let { return it }
         val rule = TocRule()
         ruleToc = rule
         return rule
     }
 
-    fun getContentRule(): ContentRule {
+    override fun getContentRule(): ContentRule {
         ruleContent?.let { return it }
         val rule = ContentRule()
         ruleContent = rule
@@ -236,7 +233,7 @@ data class BookSource(
         }
     }
 
-    fun isJsSource(): Boolean {
+    override fun isJsSource(): Boolean {
         return !mainJs.isNullOrBlank()
     }
 

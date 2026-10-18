@@ -1,36 +1,13 @@
 plugins {
-    alias libs.plugins.android.library
+    alias libs.plugins.kotlin.jvm
 }
 
-android {
-    compileSdk = compile_sdk_version
-    namespace = 'me.ag2s'
-    kotlin {
-        jvmToolchain {
-            languageVersion.set(JavaLanguageVersion.of(17))
-        }
-    }
-    defaultConfig {
-        minSdk 21
-
-        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
-        consumerProguardFiles "consumer-rules.pro"
-    }
-
-    compileOptions {
-        sourceCompatibility JavaVersion.VERSION_17
-        targetCompatibility JavaVersion.VERSION_17
-    }
-    lint {
-        checkDependencies = true
-        targetSdk 36
-    }
-    testOptions {
-        targetSdk 36
-    }
+java {
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
 }
 
 dependencies {
-    implementation(libs.androidx.annotation)
-    //implementation 'androidx.annotation:annotation:1.7.1'
+    // Android 平台运行时自带 org.xmlpull.v1,仅编译期需要
+    compileOnly(libs.xmlpull)
 }

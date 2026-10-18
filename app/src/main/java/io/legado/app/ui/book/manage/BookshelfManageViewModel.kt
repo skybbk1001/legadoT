@@ -25,6 +25,7 @@ import io.legado.app.utils.writeToOutputStream
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
 import java.io.File
+import io.legado.app.data.entities.migrateTo
 
 
 class BookshelfManageViewModel(application: Application) : BaseViewModel(application) {

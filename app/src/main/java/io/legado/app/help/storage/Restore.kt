@@ -7,9 +7,10 @@ import androidx.core.content.edit
 import androidx.documentfile.provider.DocumentFile
 import io.legado.app.BuildConfig
 import io.legado.app.R
-import io.legado.app.constant.AppConst.androidId
+import io.legado.app.constant.AppConst
 import io.legado.app.constant.AppLog
 import io.legado.app.constant.PreferKey
+import io.legado.app.constant.androidId
 import io.legado.app.data.appDb
 import io.legado.app.data.entities.Book
 import io.legado.app.data.entities.BookGroup
@@ -32,8 +33,10 @@ import io.legado.app.data.entities.TxtTocRule
 import io.legado.app.help.DirectLinkUpload
 import io.legado.app.help.HighlightStyle
 import io.legado.app.help.LauncherIconHelp
+import io.legado.app.help.nostr.NostrSignerStore
 import io.legado.app.help.book.isLocal
 import io.legado.app.help.book.upType
+import io.legado.app.help.config.AppConfig
 import io.legado.app.help.config.LocalConfig
 import io.legado.app.help.config.ReadBookConfig
 import io.legado.app.help.config.ThemeConfig
@@ -285,7 +288,7 @@ object Restore {
         fileToListT<ReadRecord>(path, "readRecord.json")?.let {
             it.forEach { readRecord ->
                 //判断是不是本机记录
-                if (readRecord.deviceId != androidId) {
+                if (readRecord.deviceId != AppConst.androidId) {
                     kotlin.runCatching {
                         appDb.readRecordDao.insert(readRecord)
                     }
@@ -312,6 +315,19 @@ object Restore {
             }
         }?.onFailure {
             AppLog.put("恢复服务器配置出错\n${it.localizedMessage}", it)
+        }
+        File(path, Backup.nostrAccountFileName).takeIf {
+            it.exists()
+        }?.runCatching {
+            val raw = readText()
+            val json = runCatching { aes.decryptStr(raw) }.getOrDefault(raw)
+            GSON.fromJsonObject<NostrSignerStore.Account>(json).getOrNull()?.let { account ->
+                // 原会话密钥与 AndroidKeyStore 绑定、跨设备不可用，只带地址过来，由用户重新连接签名器
+                NostrSignerStore.clear()
+                AppConfig.nostrRestoredBunkerUri = account.bunkerUri
+            }
+        }?.onFailure {
+            AppLog.put("恢复 Nostr 账号出错\n${it.localizedMessage}", it)
         }
         File(path, DirectLinkUpload.ruleFileName).takeIf {
             it.exists()

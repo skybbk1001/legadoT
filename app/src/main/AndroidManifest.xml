@@ -593,6 +593,12 @@
             <action android:name="android.intent.action.VIEW" />
             <data android:scheme="*" />
         </intent>
+        <!-- NIP-55：本机签名器 App 通过 nostrsigner scheme 提供签名能力 -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.BROWSABLE" />
+            <data android:scheme="nostrsigner" />
+        </intent>
         <intent>
             <action android:name="android.intent.action.VIEW" />
             <data

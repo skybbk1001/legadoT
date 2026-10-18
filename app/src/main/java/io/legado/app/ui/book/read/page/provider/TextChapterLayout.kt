@@ -12,7 +12,6 @@ import io.legado.app.data.entities.BookChapter
 import io.legado.app.help.book.BookContent
 import io.legado.app.help.book.BookHelp
 import io.legado.app.help.book.getBookSource
-import io.legado.app.help.config.AppConfig
 import io.legado.app.help.config.ReadBookConfig
 import io.legado.app.help.coroutine.Coroutine
 import io.legado.app.model.ImageProvider
@@ -39,6 +38,7 @@ import kotlinx.coroutines.launch
 import java.util.LinkedList
 import java.util.regex.Matcher
 import kotlin.math.roundToInt
+import io.legado.app.data.entities.getPageAnim
 
 class TextChapterLayout(
     scope: CoroutineScope,
@@ -793,7 +793,8 @@ class TextChapterLayout(
             reviewTitleOffset,
             chapterIndex = bookChapter.index
         )
-        if (count <= 0) return
+        // count == -1 是可写的空评论气泡，也要落到列上。
+        if (count == 0) return
         textLine.columns.forEach { column ->
             if (column is ReviewColumn) {
                 column.count = count

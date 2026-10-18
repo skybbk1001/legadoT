@@ -59,6 +59,55 @@
 
 # 保持js引擎调用的java类
 -keep class * extends io.legado.app.help.JsExtensions{*;}
+# JsExtensions/JsEncodeUtils 迁入 shared commonMain 后无法使用 androidx @Keep, 按 FQN 等价保留
+-keep class io.legado.app.help.JsExtensions { *; }
+-keep class io.legado.app.help.JsExtensions$* { *; }
+-keep class io.legado.app.help.JsEncodeUtils { *; }
+-keep class io.legado.app.help.JsEncodeUtils$* { *; }
+# crypto/MD5Utils 迁入 shared commonMain 后失去 @Keep, JS 反射按名调用其方法, 等价保留
+-keep class io.legado.app.help.crypto.** { *; }
+-keep class io.legado.app.utils.MD5Utils { *; }
+# JNI 符号按 Java 包名/方法名静态导出,不可被 R8 混淆或改写
+-keep class fr.acinq.secp256k1.** { *; }
+# CacheManager 迁入 shared commonMain 后失去 @Keep, AnalyzeRule 以 bindings["cache"] 暴露给 JS 反射调用, 等价保留
+-keep class io.legado.app.help.CacheManager { *; }
+-keep class io.legado.app.help.CacheManager$* { *; }
+# modules/rhino 转 KMP 后 consumer-rules.pro 无法随 KMP 库传播, 原规则等价搬入
+## HtmlUnit core-js (Rhino fork)
+-keep class
+!org.htmlunit.corejs.javascript.ast.**,
+!org.htmlunit.corejs.javascript.xml.**,
+!org.htmlunit.corejs.javascript.commonjs.**,
+!org.htmlunit.corejs.javascript.optimizer.**,
+!org.htmlunit.corejs.javascript.serialize.**,
+!org.htmlunit.corejs.javascript.tools.**,
+org.htmlunit.corejs.javascript.** { *; }
+
+-keep class com.script.** { *; }
+
+-dontwarn org.htmlunit.corejs.javascript.engine.RhinoScriptEngineFactory
+## 以下内容是更新rhino1.7.14.jar后IDE提示添加的
+-dontwarn java.beans.**
+-dontwarn javax.script.**
+## 以下内容是更新rhino1.8.0.jar后IDE提示添加的
+-dontwarn jdk.dynalink.CallSiteDescriptor
+-dontwarn jdk.dynalink.DynamicLinker
+-dontwarn jdk.dynalink.DynamicLinkerFactory
+-dontwarn jdk.dynalink.NamedOperation
+-dontwarn jdk.dynalink.Namespace
+-dontwarn jdk.dynalink.NamespaceOperation
+-dontwarn jdk.dynalink.Operation
+-dontwarn jdk.dynalink.RelinkableCallSite
+-dontwarn jdk.dynalink.StandardNamespace
+-dontwarn jdk.dynalink.StandardOperation
+-dontwarn jdk.dynalink.linker.GuardedInvocation
+-dontwarn jdk.dynalink.linker.GuardingDynamicLinker
+-dontwarn jdk.dynalink.linker.LinkRequest
+-dontwarn jdk.dynalink.linker.LinkerServices
+-dontwarn jdk.dynalink.linker.TypeBasedGuardingDynamicLinker
+-dontwarn jdk.dynalink.linker.support.CompositeTypeBasedGuardingDynamicLinker
+-dontwarn jdk.dynalink.linker.support.Guards
+-dontwarn jdk.dynalink.support.ChainedCallSite
 # 数据类
 -keep class **.data.entities.**{*;}
 # 高亮样式 Gson 模型在 help 包(不在 data.entities),release 下 R8 会破坏下划线线型枚举

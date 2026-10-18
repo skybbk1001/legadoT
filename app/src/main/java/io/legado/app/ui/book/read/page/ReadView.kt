@@ -232,6 +232,11 @@ class ReadView(context: Context, attrs: AttributeSet) :
                 if (!pressDown) return true
                 pressDown = false
                 if (!pageDelegate!!.isMoved && !isMove) {
+                    if (pressOnTextSelected && curPage.clickReviewColumn(startX, startY)) {
+                        // 选中态下点中段评气泡：同一次抬手不按"取消选择"处理
+                        pressOnTextSelected = false
+                        return true
+                    }
                     if (!longPressed && !pressOnTextSelected) {
                         if (!curPage.onClick(startX, startY)) {
                             onSingleTapUp()

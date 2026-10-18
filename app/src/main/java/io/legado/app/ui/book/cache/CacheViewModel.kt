@@ -11,6 +11,7 @@ import io.legado.app.help.coroutine.Coroutine
 import io.legado.app.utils.sendValue
 import kotlinx.coroutines.ensureActive
 import kotlin.collections.set
+import io.legado.app.data.entities.getFileName
 
 
 class CacheViewModel(application: Application) : BaseViewModel(application) {

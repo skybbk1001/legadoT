@@ -18,7 +18,9 @@ import kotlin.math.roundToInt
 data class ReviewColumn(
     override var start: Float,
     override var end: Float,
-    var count: Int = 0
+    var count: Int = 0,
+    /** 0 表示未显式指定，点击时回退用 textLine 计算；非 0 为显式 reviewId（如章末未定位）。 */
+    var reviewId: Int = 0
 ) : BaseColumn {
 
     override var textLine: TextLine = emptyTextLine

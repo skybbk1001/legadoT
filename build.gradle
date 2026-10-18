@@ -2,7 +2,7 @@
 
 buildscript {
     ext{
-        compile_sdk_version = 36
+        compile_sdk_version = 37
 //        build_tool_version = '34.0.0'
 //        kotlin_version = '1.9.22'
 //        ksp_version = "1.0.17"
@@ -30,6 +30,12 @@ plugins {
     alias libs.plugins.room apply false
 
     alias libs.plugins.download apply false
+
+    alias libs.plugins.kotlin.multiplatform apply false
+    alias libs.plugins.kotlin.jvm apply false
+    alias libs.plugins.compose.compiler apply false
+    alias libs.plugins.compose.multiplatform apply false
+    alias libs.plugins.android.multiplatform.library apply false
 }
 
 def sqliteTmpDir = new File(rootDir, ".gradle/sqlite-temp")
@@ -37,6 +43,18 @@ if (!sqliteTmpDir.exists()) {
     sqliteTmpDir.mkdirs()
 }
 System.setProperty("org.sqlite.tmpdir", sqliteTmpDir.absolutePath)
+
+// Termux(bionic JDK) 环境下 xerial 官方 Linux/aarch64 native 是 glibc 构建,Room KSP 的
+// DatabaseVerifier 无法 dlopen;强制使用 mavenLocal 中内置 bionic native 的 termux 构建版
+allprojects {
+    configurations.all {
+        resolutionStrategy {
+            if (System.getenv("TERMUX_BUILD") != null) {
+                force 'org.xerial:sqlite-jdbc:3.41.2.2-termux1'
+            }
+        }
+    }
+}
 
 tasks.register('clean', Delete) {
     delete rootProject.layout.buildDirectory

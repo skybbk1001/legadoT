@@ -13,6 +13,7 @@ import io.legado.app.data.entities.SearchBook
 import io.legado.app.help.book.SearchBookShelfHelp
 import io.legado.app.help.book.isNotShelf
 import io.legado.app.model.webBook.WebBook
+import io.legado.app.model.webBook.asSearchBooks
 import io.legado.app.utils.printOnDebug
 import io.legado.app.utils.stackTraceStr
 import io.legado.app.utils.toastOnUi
@@ -77,10 +78,11 @@ class ExploreShowViewModel(application: Application) : BaseViewModel(application
         WebBook.exploreBook(viewModelScope, source, url, page)
             .timeout(if (BuildConfig.DEBUG) 0L else 30000L)
             .onSuccess(IO) { searchBooks ->
-                books.addAll(searchBooks)
+                val bookItems = searchBooks.asSearchBooks()
+                books.addAll(bookItems)
                 booksData.postValue(books.toList())
-                appDb.searchBookDao.insert(*searchBooks.toTypedArray())
-                if (searchBooks.isNotEmpty()) {
+                appDb.searchBookDao.insert(*bookItems.toTypedArray())
+                if (bookItems.isNotEmpty()) {
                     // page 此刻仍是刚加载完成的页码,滚动翻页时同步右上角“第x页”
                     currentPageLiveData.postValue(page)
                 }

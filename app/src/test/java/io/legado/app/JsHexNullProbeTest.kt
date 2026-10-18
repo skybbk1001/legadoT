@@ -3,7 +3,7 @@ package io.legado.app
 import com.script.ScriptBindings
 import com.script.rhino.RhinoScriptEngine
 import io.legado.app.data.entities.BaseSource
-import io.legado.app.help.JsExtensions
+import io.legado.app.help.JsExtensionsAndroid
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -24,7 +24,7 @@ import org.junit.Test
 class JsHexNullProbeTest {
 
     // JsExtensions/JsEncodeUtils 大部分方法有默认实现, 仅 getSource 为抽象成员
-    private class TestJs : JsExtensions {
+    private class TestJs : JsExtensionsAndroid {
         override fun getSource(): BaseSource? = null
     }
 

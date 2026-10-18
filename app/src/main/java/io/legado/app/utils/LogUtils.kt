@@ -6,9 +6,9 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.os.Build
 import android.webkit.WebSettings
-import io.legado.app.BuildConfig
 import io.legado.app.constant.AppConst
 import io.legado.app.constant.AppLog
+import io.legado.app.constant.appInfo
 import io.legado.app.help.config.AppConfig
 import io.legado.app.help.globalExecutor
 import splitties.init.appCtx
@@ -135,10 +135,4 @@ object LogUtils {
         }
     }
 
-}
-
-fun Throwable.printOnDebug() {
-    if (BuildConfig.DEBUG) {
-        printStackTrace()
-    }
 }

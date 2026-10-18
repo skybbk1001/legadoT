@@ -30,6 +30,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancelChildren
 import splitties.init.appCtx
+import io.legado.app.data.entities.getDisplayTitle
+import io.legado.app.data.entities.getUseReplaceRule
 
 @SuppressLint("StaticFieldLeak")
 @Suppress("unused")

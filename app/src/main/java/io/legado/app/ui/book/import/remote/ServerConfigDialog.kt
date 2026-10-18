@@ -18,6 +18,7 @@ import io.legado.app.utils.applyTint
 import io.legado.app.utils.setLayout
 import io.legado.app.utils.viewbindingdelegate.viewBinding
 import org.json.JSONObject
+import io.legado.app.data.entities.getConfigJsonObject
 
 class ServerConfigDialog() : BaseDialogFragment(R.layout.dialog_webdav_server, true),
     Toolbar.OnMenuItemClickListener {

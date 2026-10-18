@@ -1,17 +1,20 @@
 name: Release Build
 
 on:
-#  push:
+  push:
 #    branches:
 #      - master
 #    paths:
 #      - 'CHANGELOG.md'
+    tags:
+      - '*'
   workflow_dispatch:
 
 jobs:
   prepare:
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/master'
+    # if: github.ref == 'refs/heads/master'
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.ref_type == 'tag' && github.ref == 'refs/heads/master') }}
     outputs:
       version: ${{ steps.set-ver.outputs.version }}
       play: ${{ steps.check.outputs.play }}

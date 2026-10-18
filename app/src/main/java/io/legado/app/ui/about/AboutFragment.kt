@@ -9,8 +9,9 @@ import androidx.lifecycle.lifecycleScope
 import androidx.preference.Preference
 import io.legado.app.lib.prefs.fragment.PreferenceFragment
 import io.legado.app.R
-import io.legado.app.constant.AppConst.appInfo
 import io.legado.app.constant.AppLog
+import io.legado.app.constant.AppConst
+import io.legado.app.constant.appInfo
 import io.legado.app.help.CrashHandler
 import io.legado.app.help.config.AppConfig
 import io.legado.app.help.coroutine.Coroutine
@@ -36,6 +37,7 @@ import kotlinx.coroutines.delay
 import splitties.init.appCtx
 import java.io.File
 
+@Deprecated("已由 Compose 版 AboutActivity 取代,保留仅供参考")
 class AboutFragment : PreferenceFragment() {
 
     private val waitDialog by lazy {
@@ -45,7 +47,7 @@ class AboutFragment : PreferenceFragment() {
     override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
         addPreferencesFromResource(R.xml.about)
         findPreference<Preference>("update_log")?.summary =
-            "${getString(R.string.version)} ${appInfo.versionName}"
+            "${getString(R.string.version)} ${AppConst.appInfo.versionName}"
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {

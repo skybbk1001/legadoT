@@ -60,6 +60,9 @@ import java.io.FileOutputStream
 import java.io.InputStream
 import java.util.regex.Pattern
 import kotlin.coroutines.coroutineContext
+import io.legado.app.data.entities.getDisplayTitle
+import io.legado.app.data.entities.getUseReplaceRule
+import io.legado.app.data.entities.save
 
 /**
  * 书籍文件导入 目录正文解析

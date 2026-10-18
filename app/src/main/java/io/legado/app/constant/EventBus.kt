@@ -38,6 +38,11 @@ object EventBus {
     const val UP_SEEK_BAR = "upSeekBar"
     const val READ_ALOUD_PLAY = "readAloudPlay"
     const val EXPORT_BOOK = "exportBook"
+    const val REFRESH_REVIEW_SUMMARY = "refreshReviewSummary"
+    /** 重新拉取段评统计但不做乐观 +1：供发布失败后回退气泡到真实值。 */
+    const val REFRESH_REVIEW_SUMMARY_ONLY = "refreshReviewSummaryOnly"
+    /** 待发布段评占位(发送中/草稿)增删或状态变化，payload 为该段的待发布 key。 */
+    const val REFRESH_REVIEW_PENDING = "refreshReviewPending"
     const val UP_MANGA_CONFIG = "upMangaConfig"
     const val PLAY_MODE_CHANGED = "playModeChanged"
     const val REFRESH_BOOK_INFO = "refreshBookInfo"

@@ -9,6 +9,9 @@
     <color name="background_card">#1E1E1E</color>
     <color name="background_menu">#262626</color>
 
+    <color name="review_sort_track">#303030</color>
+    <color name="review_sort_thumb">#4A4A4A</color>
+
     <color name="transparent10">#10ffffff</color>
     <color name="transparent30">#30ffffff</color>
     <color name="transparent50">#50ffffff</color>

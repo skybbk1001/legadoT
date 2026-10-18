@@ -1,6 +1,6 @@
 package me.ag2s.epublib.domain;
 
-import android.util.Base64;
+import java.util.Base64;
 
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -326,7 +326,7 @@ public class Resources implements Serializable {
         if (dataUriMatcher.find()) {
             String dataUriMediaTypeString = dataUriMatcher.group(1);
             MediaType dataUriMediaType = new MediaType(dataUriMediaTypeString, "." + StringUtil.substringAfterLast(dataUriMediaTypeString, '/'));
-            byte[] dataUriData = Base64.decode(dataUriMatcher.group(2), Base64.DEFAULT);
+            byte[] dataUriData = Base64.getMimeDecoder().decode(dataUriMatcher.group(2));
             return new Resource(dataUriData, dataUriMediaType);
         } else {
             return resources.get(href);

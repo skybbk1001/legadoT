@@ -65,6 +65,9 @@ import splitties.init.appCtx
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.max
 import kotlin.math.min
+import io.legado.app.data.entities.getDisplayTitle
+import io.legado.app.data.entities.getPageAnim
+import io.legado.app.data.entities.getUseReplaceRule
 
 
 @Suppress("MemberVisibilityCanBePrivate")

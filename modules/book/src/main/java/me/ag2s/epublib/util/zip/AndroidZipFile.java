@@ -1,19 +1,16 @@
 
-
 package me.ag2s.epublib.util.zip;
 
 import static me.ag2s.base.PfdHelper.seek;
-
-import android.os.ParcelFileDescriptor;
-
-import androidx.annotation.NonNull;
 
 import java.io.BufferedInputStream;
 import java.io.DataInput;
 import java.io.EOFException;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.channels.FileChannel;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -53,7 +50,7 @@ public class AndroidZipFile implements ZipConstants {
     // File from which zip entries are read.
     //private final RandomAccessFile raf;
 
-    private final ParcelFileDescriptor pfd;
+    private final FileChannel pfd;
 
     // The entries of this zip file when initialized and not yet closed.
     private HashMap<String, AndroidZipEntry> entries;
@@ -67,7 +64,7 @@ public class AndroidZipFile implements ZipConstants {
      * @throws ZipException if the file doesn't contain a valid zip
      *                      archive.
      */
-    public AndroidZipFile(@NonNull ParcelFileDescriptor pfd, String name) throws ZipException, IOException {
+    public AndroidZipFile(FileChannel pfd, String name) throws ZipException, IOException {
         this.pfd = pfd;
         this.name = name;
     }
@@ -80,7 +77,7 @@ public class AndroidZipFile implements ZipConstants {
      *                      archive.
      */
     public AndroidZipFile(File file) throws ZipException, IOException {
-        this.pfd = ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY);
+        this.pfd = new FileInputStream(file).getChannel();
         this.name = file.getPath();
     }
 
@@ -125,7 +122,7 @@ public class AndroidZipFile implements ZipConstants {
         return (b[0] & 0xff) | (b[1] & 0xff) << 8;
     }
 
-    private final int readLeShort(ParcelFileDescriptor pfd, byte[] b) throws IOException {
+    private final int readLeShort(FileChannel pfd, byte[] b) throws IOException {
         PfdHelper.readFully(pfd, b, 0, 2);//di.readFully(b, 0, 2);
         return (b[0] & 0xff) | (b[1] & 0xff) << 8;
     }
@@ -146,12 +143,11 @@ public class AndroidZipFile implements ZipConstants {
                 | ((b[2] & 0xff) | (b[3] & 0xff) << 8) << 16;
     }
 
-    private final int readLeInt(ParcelFileDescriptor pfd, byte[] b) throws IOException {
+    private final int readLeInt(FileChannel pfd, byte[] b) throws IOException {
         PfdHelper.readFully(pfd, b, 0, 4);//di.readFully(b, 0, 4);
         return ((b[0] & 0xff) | (b[1] & 0xff) << 8)
                 | ((b[2] & 0xff) | (b[3] & 0xff) << 8) << 16;
     }
-
 
     /**
      * Read an unsigned short in little endian byte order from the given
@@ -177,7 +173,6 @@ public class AndroidZipFile implements ZipConstants {
         return ((b[off] & 0xff) | (b[off + 1] & 0xff) << 8)
                 | ((b[off + 2] & 0xff) | (b[off + 3] & 0xff) << 8) << 16;
     }
-
 
     /**
      * Read the central directory of a zip file and fill the entries
@@ -336,7 +331,6 @@ public class AndroidZipFile implements ZipConstants {
         }
     }
 
-
     //access should be protected by synchronized(raf)
     private final byte[] locBuf = new byte[LOCHDR];
 
@@ -438,10 +432,10 @@ public class AndroidZipFile implements ZipConstants {
     }
 
     private static class PartialInputStream extends InputStream {
-        private final ParcelFileDescriptor pfd;
+        private final FileChannel pfd;
         long filepos, end;
 
-        public PartialInputStream(ParcelFileDescriptor pfd, long start, long len) {
+        public PartialInputStream(FileChannel pfd, long start, long len) {
             this.pfd = pfd;
             filepos = start;
             end = start + len;

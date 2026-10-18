@@ -1,7 +1,6 @@
 package me.ag2s.umdlib.umd;
 
 
-import androidx.annotation.NonNull;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -24,7 +23,6 @@ public class UmdReader {
     int _AdditionalCheckNumber;
     int _TotalContentLen;
     boolean end = false;
-
 
     public synchronized UmdBook read(InputStream inputStream) throws Exception {
 
@@ -106,7 +104,6 @@ public class UmdReader {
                         book.getChapters().addTitle(title);
                     }
                 }
-
 
                 break;
             default:
@@ -208,13 +205,11 @@ public class UmdReader {
                     byte[] numArray = reader.readBytes(length);
                 }
 
-
         }
     }
 
-
     @Override
-    @NonNull
+    
     public String toString() {
         return "UmdReader{" +
                 "book=" + book +
