@@ -6,9 +6,13 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
+import android.os.PowerManager
+import android.os.Process
+import android.os.SystemClock
 import androidx.annotation.RequiresApi
 import androidx.core.app.NotificationCompat
 import androidx.lifecycle.lifecycleScope
+import io.legado.app.BuildConfig
 import io.legado.app.R
 import io.legado.app.base.BaseService
 import io.legado.app.constant.AppConst
@@ -42,6 +46,8 @@ import splitties.systemservices.notificationManager
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.UUID
+import java.util.concurrent.atomic.AtomicInteger
 
 class AutoTaskService : BaseService() {
 
@@ -49,6 +55,8 @@ class AutoTaskService : BaseService() {
         private const val ALARM_REQUEST_CODE = 100108
         private const val DATA_SYNC_IDLE_CHECK_MS = 60_000L
         private const val DATA_SYNC_MIN_DELAY_MS = 1_000L
+        private const val DIAGNOSTIC_HEARTBEAT_MS = 30_000L
+        private const val EXTRA_DIAGNOSTIC_ALARM_AT = "autoTaskDiagnosticAlarmAt"
 
         var isRun = false
             private set
@@ -58,8 +66,10 @@ class AutoTaskService : BaseService() {
         }
 
         fun stop(context: Context) {
-            context.startService<AutoTaskService> {
-                action = IntentAction.stop
+            dispatchLogged(IntentAction.stop) {
+                context.startService<AutoTaskService> {
+                    action = IntentAction.stop
+                }
             }
         }
 
@@ -74,7 +84,21 @@ class AutoTaskService : BaseService() {
             val intent = Intent(context, AutoTaskService::class.java).apply {
                 this.action = action
             }
-            context.startForegroundServiceCompat(intent)
+            dispatchLogged(action) {
+                context.startForegroundServiceCompat(intent)
+            }
+        }
+
+        private inline fun dispatchLogged(action: String, block: () -> Unit) {
+            val requestId = "dispatch-${Process.myPid()}-${UUID.randomUUID().toString().take(8)}"
+            AutoTaskDiagnostics.record(requestId, "dispatch.request", "action=$action")
+            try {
+                block()
+                AutoTaskDiagnostics.record(requestId, "dispatch.returned", "action=$action")
+            } catch (error: Throwable) {
+                AutoTaskDiagnostics.record(requestId, "dispatch.failed", "action=$action error=${error.javaClass.simpleName}")
+                throw error
+            }
         }
     }
 
@@ -84,6 +108,16 @@ class AutoTaskService : BaseService() {
     private val activeTaskNames = LinkedHashMap<String, String>()
     private val taskLock = Mutex()
     private var dataSyncLoopJob: Job? = null
+    private var diagnosticHeartbeat: Job? = null
+    private val serviceId = "${Process.myPid()}-${UUID.randomUUID().toString().take(8)}"
+    private val createdElapsed = SystemClock.elapsedRealtime()
+    private val cycleSequence = AtomicInteger()
+    private val pendingCycles = AtomicInteger()
+    @Volatile private var activeBatch: AutoTaskBatchTrace? = null
+    @Volatile private var schedulerPhase = "created"
+    @Volatile private var lastStopRequest = "none"
+    // Observed in this service instance only; unknown does not mean the OS has no alarm.
+    @Volatile private var nextAlarmDescription = "unknown"
 
     private val notificationBuilder by lazy {
         NotificationCompat.Builder(this, AppConst.channelIdWeb)
@@ -100,35 +134,86 @@ class AutoTaskService : BaseService() {
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
     }
 
+    override fun onCreate() {
+        diagnostic("service.create", "sdk=${Build.VERSION.SDK_INT} " +
+            "version=${BuildConfig.VERSION_NAME} code=${BuildConfig.VERSION_CODE} " +
+            "mode=${if (useAlarmFgsMode()) "alarm_short_service" else "data_sync_loop"}")
+        super.onCreate()
+        diagnostic("service.environment", permissionState())
+        // A sibling of the executing batch: it must not keep awaitAll/coroutineScope alive.
+        diagnosticHeartbeat = lifecycleScope.launch {
+            while (isActive) {
+                delay(DIAGNOSTIC_HEARTBEAT_MS)
+                if (useAlarmFgsMode() || pendingCycles.get() > 0) {
+                    diagnostic("service.heartbeat", runtimeSnapshot())
+                }
+            }
+        }
+    }
+
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        val scheduledAt = intent?.getLongExtra(EXTRA_DIAGNOSTIC_ALARM_AT, 0L) ?: 0L
+        val trigger = when {
+            scheduledAt > 0L -> "alarm"
+            intent?.action == IntentAction.start -> "start"
+            intent?.action == IntentAction.stop -> "stop"
+            intent?.action == IntentAction.refreshSchedule -> "refresh"
+            else -> "system"
+        }
+        diagnostic("service.start_command", "startId=$startId trigger=$trigger flags=$flags " +
+            "scheduledAt=$scheduledAt deliveryLagMs=${if (scheduledAt > 0L) System.currentTimeMillis() - scheduledAt else 0L} " +
+            "enabled=${getPrefBoolean(PreferKey.autoTaskService)}")
         if (intent?.action == IntentAction.stop) {
             putPrefBoolean(PreferKey.autoTaskService, false)
             dataSyncLoopJob?.cancel()
             dataSyncLoopJob = null
-            cancelNextAlarm()
-            stopSelf()
+            cancelNextAlarm("user_stop")
+            requestStop("user_stop")
             return START_NOT_STICKY
         }
 
         val result = super.onStartCommand(intent, flags, startId)
         if (result == START_NOT_STICKY) {
+            diagnostic("service.start_rejected", "startId=$startId nextWakeNotRearmed=true ${runtimeSnapshot()}")
             return result
         }
         if (useAlarmFgsMode()) {
-            runDueAndReschedule(startId)
+            runDueAndReschedule(startId, trigger)
         } else {
             if (!getPrefBoolean(PreferKey.autoTaskService)) {
-                stopSelfResult(startId)
+                requestStop("disabled", startId)
                 return START_NOT_STICKY
             }
-            cancelNextAlarm()
-            runDueNoReschedule()
+            cancelNextAlarm("data_sync_mode")
+            runDueNoReschedule(startId, trigger)
             ensureDataSyncLoopRunning()
         }
         return result
     }
 
+    override fun onForegroundStartDenied(error: Throwable) {
+        lastStopRequest = "foreground_denied"
+        diagnostic("service.foreground_denied", "error=${errorTypes(error)} " +
+            "${permissionState()} ${runtimeSnapshot()}")
+    }
+
+    override fun onTimeout(startId: Int, fgsType: Int) {
+        lastStopRequest = "timeout"
+        diagnostic("service.timeout", "startId=$startId fgsType=$fgsType ${runtimeSnapshot()}")
+        super.onTimeout(startId, fgsType)
+    }
+
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        lastStopRequest = "task_removed"
+        diagnostic("service.task_removed", runtimeSnapshot())
+        super.onTaskRemoved(rootIntent)
+    }
+
     override fun onDestroy() {
+        // Snapshot before cancellation: otherwise an unfinished batch may already look empty.
+        diagnostic("service.destroy", "lastStopRequest=$lastStopRequest ${runtimeSnapshot()}")
+        diagnosticHeartbeat?.cancel()
+        diagnosticHeartbeat = null
         isRun = false
         dataSyncLoopJob?.cancel()
         dataSyncLoopJob = null
@@ -136,52 +221,78 @@ class AutoTaskService : BaseService() {
         notificationManager.cancel(NotificationId.AutoTaskService)
     }
 
-    private fun runDueAndReschedule(startId: Int) {
-        lifecycleScope.launch(Dispatchers.IO) {
+    private fun runDueAndReschedule(startId: Int, trigger: String) {
+        val job = lifecycleScope.launch(Dispatchers.IO) {
             if (!getPrefBoolean(PreferKey.autoTaskService)) {
-                cancelNextAlarm()
-                stopSelfResult(startId)
+                cancelNextAlarm("disabled")
+                requestStop("disabled", startId)
                 return@launch
             }
-            taskLock.withLock {
-                isRun = true
-                try {
-                    // 提前排好下一次 cron 闹钟，避免本轮服务意外结束后定时链中断。
-                    scheduleNextRunFromRules()
-                    processDueTasks()
-                } finally {
-                    isRun = false
-                }
-            }
-            stopSelfResult(startId)
+            runDueCycle("$trigger:$startId", scheduleAlarm = true)
+            requestStop("cycle_finished", startId)
         }
+        observeJob(job, "alarm_cycle:$startId")
     }
 
-    private fun runDueNoReschedule() {
-        lifecycleScope.launch(Dispatchers.IO) {
+    private fun runDueNoReschedule(startId: Int, trigger: String) {
+        val job = lifecycleScope.launch(Dispatchers.IO) {
             if (!getPrefBoolean(PreferKey.autoTaskService)) {
-                stopSelf()
+                requestStop("disabled")
                 return@launch
             }
+            runDueCycle("$trigger:$startId", scheduleAlarm = false)
+        }
+        observeJob(job, "immediate_cycle:$startId")
+    }
+
+    private suspend fun runDueCycle(trigger: String, scheduleAlarm: Boolean) {
+        val cycle = cycleSequence.incrementAndGet()
+        val queuedAt = SystemClock.elapsedRealtime()
+        pendingCycles.incrementAndGet()
+        diagnostic("cycle.queued", "cycle=$cycle trigger=$trigger ${runtimeSnapshot()}")
+        var outcome = "interrupted"
+        try {
             taskLock.withLock {
                 isRun = true
+                diagnostic("cycle.begin", "cycle=$cycle trigger=$trigger " +
+                    "lockWaitMs=${SystemClock.elapsedRealtime() - queuedAt}")
                 try {
-                    processDueTasks()
+                    if (scheduleAlarm) {
+                        schedulerPhase = "scheduling"
+                        // Preserve pre-scheduling: timeout must not prevent the next cron alarm.
+                        scheduleNextRunFromRules()
+                    }
+                    schedulerPhase = "scanning"
+                    processDueTasks(cycle)
+                    outcome = "completed"
                 } finally {
                     isRun = false
+                    schedulerPhase = "idle"
                 }
             }
+        } catch (error: Throwable) {
+            outcome = if (AutoTaskBatchPolicy.isCancellation(error)) "interrupted" else "failed"
+            diagnostic("cycle.$outcome", "cycle=$cycle error=${errorTypes(error)}")
+            throw error
+        } finally {
+            pendingCycles.decrementAndGet()
+            diagnostic("cycle.end", "cycle=$cycle outcome=$outcome " +
+                "elapsedMs=${SystemClock.elapsedRealtime() - queuedAt} ${runtimeSnapshot()}")
         }
     }
 
     private fun ensureDataSyncLoopRunning() {
-        if (dataSyncLoopJob?.isActive == true) return
+        if (dataSyncLoopJob?.isActive == true) {
+            diagnostic("loop.already_active", runtimeSnapshot())
+            return
+        }
         if (!hasEnabledRule()) {
-            stopSelf()
+            requestStop("no_enabled_rules")
             return
         }
         dataSyncLoopJob = lifecycleScope.launch(Dispatchers.IO) {
             AppLog.put("AutoTask dataSync loop started")
+            diagnostic("loop.begin", runtimeSnapshot())
             while (isActive && !useAlarmFgsMode()) {
                 if (!getPrefBoolean(PreferKey.autoTaskService)) {
                     break
@@ -191,26 +302,66 @@ class AutoTaskService : BaseService() {
                     break
                 }
                 val delayMs = computeDataSyncDelayMs(rules)
+                diagnostic("loop.sleep", "delayMs=$delayMs expectedWakeAt=${System.currentTimeMillis() + delayMs}")
                 delay(delayMs)
                 if (!getPrefBoolean(PreferKey.autoTaskService)) {
                     break
                 }
-                taskLock.withLock {
-                    isRun = true
-                    try {
-                        processDueTasks()
-                    } finally {
-                        isRun = false
-                    }
-                }
+                runDueCycle("loop", scheduleAlarm = false)
             }
             AppLog.put("AutoTask dataSync loop stopped")
             dataSyncLoopJob = null
             if (!getPrefBoolean(PreferKey.autoTaskService) || !hasEnabledRule()) {
-                stopSelf()
+                requestStop("loop_disabled_or_empty")
             }
+        }.also { observeJob(it, "data_sync_loop") }
+    }
+
+    private fun observeJob(job: Job, label: String) {
+        job.invokeOnCompletion { error ->
+            val outcome = when {
+                error == null -> "completed"
+                AutoTaskBatchPolicy.isCancellation(error) -> "interrupted"
+                else -> "failed"
+            }
+            diagnostic("job.end", "job=$label outcome=$outcome error=${errorTypes(error)} ${runtimeSnapshot()}")
         }
     }
+
+    private fun requestStop(reason: String, startId: Int? = null) {
+        lastStopRequest = reason
+        diagnostic("service.stop_request", "reason=$reason startId=$startId ${runtimeSnapshot()}")
+        if (startId == null) {
+            stopSelf()
+        } else {
+            val accepted = stopSelfResult(startId)
+            diagnostic("service.stop_result", "reason=$reason startId=$startId accepted=$accepted")
+        }
+    }
+
+    private fun diagnostic(event: String, details: String) {
+        AutoTaskDiagnostics.record(serviceId, event,
+            "serviceElapsedMs=${SystemClock.elapsedRealtime() - createdElapsed} $details")
+    }
+
+    private fun runtimeSnapshot(): String = "phase=$schedulerPhase pendingCycles=${pendingCycles.get()} " +
+        "loopActive=${dataSyncLoopJob?.isActive} observedNextAlarm=$nextAlarmDescription " +
+        (activeBatch?.summary() ?: "batch=none")
+
+    private fun permissionState(): String = runCatching {
+        val alarm = getSystemService(AlarmManager::class.java)
+        val power = getSystemService(PowerManager::class.java)
+        val exact = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            alarm?.canScheduleExactAlarms()
+        } else true
+        "exactAlarmAllowed=$exact batteryExempt=${power?.isIgnoringBatteryOptimizations(packageName)} " +
+            "deviceIdle=${power?.isDeviceIdleMode} powerSave=${power?.isPowerSaveMode} " +
+            "threads=${AppConfig.threadCount} recordLog=${AppConfig.recordLog}"
+    }.getOrDefault("environment=unavailable")
+
+    // Do not copy script exceptions' messages/URLs/response bodies into the always-on journal.
+    private fun errorTypes(error: Throwable?): String = generateSequence(error) { it.cause }
+        .take(8).joinToString("->") { it.javaClass.simpleName }.ifBlank { "none" }
 
     private fun computeDataSyncDelayMs(rules: List<AutoTaskRule>): Long {
         val nextRunAt = computeNextRunAt(rules) ?: return DATA_SYNC_IDLE_CHECK_MS
@@ -218,35 +369,41 @@ class AutoTaskService : BaseService() {
         return delayMs.coerceAtLeast(DATA_SYNC_MIN_DELAY_MS)
     }
 
-    private suspend fun processDueTasks() {
+    private suspend fun processDueTasks(cycle: Int) {
         val rules = AutoTask.getRules()
         if (rules.isEmpty()) {
+            diagnostic("cycle.scan", "cycle=$cycle rules=0 enabled=0 due=0")
             setNotificationContent(getString(R.string.auto_task_no_task))
             if (useAlarmFgsMode()) {
-                cancelNextAlarm()
+                cancelNextAlarm("no_rules")
             }
             return
         }
         val enabled = rules.filter { it.enable }
         if (enabled.isEmpty()) {
+            diagnostic("cycle.scan", "cycle=$cycle rules=${rules.size} enabled=0 due=0")
             setNotificationContent(getString(R.string.auto_task_no_enabled))
             if (useAlarmFgsMode()) {
-                cancelNextAlarm()
+                cancelNextAlarm("no_enabled_rules")
             }
             return
         }
 
         val dueTasks = mutableListOf<AutoTaskRule>()
         val now = System.currentTimeMillis()
+        var invalid = 0
         for (task in enabled) {
             currentCoroutineContext().ensureActive()
             val due = AutoTaskBatchPolicy.isDue(task.cron, task.lastRunAt, now)
             if (due == null) {
+                invalid++
                 updateCronError(task, getString(R.string.auto_task_cron_invalid))
             } else if (due) {
                 dueTasks += task
             }
         }
+        diagnostic("cycle.scan", "cycle=$cycle now=$now rules=${rules.size} " +
+            "enabled=${enabled.size} due=${dueTasks.size} invalidCron=$invalid")
 
         if (dueTasks.isEmpty()) {
             setNotificationContent(getString(R.string.auto_task_running_state))
@@ -255,9 +412,23 @@ class AutoTaskService : BaseService() {
 
         // Reuse the user's update/search thread limit for scheduled tasks as well.
         val maxConcurrency = AppConfig.threadCount.coerceAtLeast(1)
-        AutoTaskBatchRunner.run(dueTasks, maxConcurrency) { task ->
-            currentCoroutineContext().ensureActive()
-            runTask(task)
+        val trace = AutoTaskBatchTrace(cycle, dueTasks.size, maxConcurrency, SystemClock::elapsedRealtime)
+        activeBatch = trace
+        schedulerPhase = "running"
+        diagnostic("batch.begin", trace.summary())
+        var outcome = "interrupted"
+        try {
+            AutoTaskBatchRunner.run(dueTasks, maxConcurrency) { task ->
+                currentCoroutineContext().ensureActive()
+                runTask(task, trace)
+            }
+            outcome = "completed"
+        } catch (error: Throwable) {
+            outcome = if (AutoTaskBatchPolicy.isCancellation(error)) "interrupted" else "failed"
+            throw error
+        } finally {
+            diagnostic("batch.end", "outcome=$outcome ${trace.summary()}")
+            activeBatch = null
         }
     }
 
@@ -265,7 +436,7 @@ class AutoTaskService : BaseService() {
         if (!useAlarmFgsMode()) return
         val nextRunAt = computeNextAlarmAt(AutoTask.getRules(), System.currentTimeMillis())
         if (nextRunAt == null) {
-            cancelNextAlarm()
+            cancelNextAlarm("no_future_cron")
             return
         }
         scheduleNextAlarm(nextRunAt)
@@ -311,11 +482,18 @@ class AutoTaskService : BaseService() {
     @RequiresApi(Build.VERSION_CODES.VANILLA_ICE_CREAM)
     private fun scheduleNextAlarm(triggerAt: Long) {
         if (!useAlarmFgsMode()) return
-        val alarmManager = getSystemService(AlarmManager::class.java) ?: return
+        val alarmManager = getSystemService(AlarmManager::class.java)
+        if (alarmManager == null) {
+            diagnostic("alarm.schedule_failed", "reason=alarm_manager_unavailable triggerAt=$triggerAt")
+            return
+        }
         val triggerAtMs = triggerAt.coerceAtLeast(System.currentTimeMillis() + 1000L)
-        val pendingIntent = buildAlarmPendingIntent()
         kotlin.runCatching {
-            if (alarmManager.canScheduleExactAlarms()) {
+            val pendingIntent = buildAlarmPendingIntent(triggerAtMs)
+            val exact = alarmManager.canScheduleExactAlarms()
+            diagnostic("alarm.schedule_request", "triggerAt=$triggerAtMs " +
+                "delayMs=${triggerAtMs - System.currentTimeMillis()} exact=$exact ${permissionState()}")
+            if (exact) {
                 alarmManager.setExactAndAllowWhileIdle(
                     AlarmManager.RTC_WAKEUP,
                     triggerAtMs,
@@ -328,15 +506,29 @@ class AutoTaskService : BaseService() {
                     pendingIntent
                 )
             }
+            nextAlarmDescription = "$triggerAtMs/exact:$exact"
+            diagnostic("alarm.scheduled", "triggerAt=$triggerAtMs exact=$exact")
             AppLog.put("AutoTask next run at ${formatTime(triggerAtMs)}")
         }.onFailure { error ->
+            diagnostic("alarm.schedule_failed", "triggerAt=$triggerAtMs error=${errorTypes(error)}")
             AppLog.put("AutoTask schedule alarm failed", error)
         }
     }
 
-    private fun cancelNextAlarm() {
-        val alarmManager = getSystemService(AlarmManager::class.java) ?: return
-        alarmManager.cancel(buildAlarmPendingIntent())
+    private fun cancelNextAlarm(reason: String) {
+        val alarmManager = getSystemService(AlarmManager::class.java)
+        if (alarmManager == null) {
+            diagnostic("alarm.cancel_failed", "reason=$reason error=alarm_manager_unavailable")
+            return
+        }
+        try {
+            alarmManager.cancel(buildAlarmPendingIntent())
+            nextAlarmDescription = "cancelled"
+            diagnostic("alarm.cancelled", "reason=$reason")
+        } catch (error: Throwable) {
+            diagnostic("alarm.cancel_failed", "reason=$reason error=${errorTypes(error)}")
+            throw error
+        }
     }
 
     /** Android 15 起用闹钟驱动 shortService 单次唤醒，而不是常驻循环。 */
@@ -352,28 +544,35 @@ class AutoTaskService : BaseService() {
         return hasEnabledRule(AutoTask.getRules())
     }
 
-    private fun buildAlarmPendingIntent(): PendingIntent {
+    private fun buildAlarmPendingIntent(triggerAt: Long? = null): PendingIntent {
         val flags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         return PendingIntent.getService(
             this,
             ALARM_REQUEST_CODE,
             Intent(this, AutoTaskService::class.java).apply {
                 action = IntentAction.refreshSchedule
+                triggerAt?.let { putExtra(EXTRA_DIAGNOSTIC_ALARM_AT, it) }
             },
             flags
         )
     }
 
-    private suspend fun runTask(task: AutoTaskRule) {
+    private suspend fun runTask(task: AutoTaskRule, trace: AutoTaskBatchTrace) {
+        trace.start(task.id, task.name)
+        diagnostic("task.begin", "batch=${trace.id} ${trace.taskSummary(task.id)} " +
+            "cron=${AutoTaskBatchTrace.field(task.cron)} lastRunAt=${task.lastRunAt}")
         markTaskStarted(task)
         var completionStatus: String? = null
-        val startAt = System.currentTimeMillis()
+        var outcome = AutoTaskBatchTrace.Outcome.INTERRUPTED
+        val startAt = SystemClock.elapsedRealtime()
         try {
             val script = normalizeScript(task.script)
             if (script.isBlank()) {
                 currentCoroutineContext().ensureActive()
                 val now = System.currentTimeMillis()
                 val message = getString(R.string.auto_task_script_empty)
+                outcome = AutoTaskBatchTrace.Outcome.FAILED
+                trace.stage(task.id, "persist")
                 AutoTask.update(task.id) {
                     it.copy(lastRunAt = now, lastError = message)
                 }
@@ -385,13 +584,15 @@ class AutoTaskService : BaseService() {
             val result = withContext(TaskCookieContext(task.id, task.enabledCookieJar)) {
                 source.evalJSInIsolatedScope(script, currentCoroutineContext())
             }
+            trace.stage(task.id, "actions")
+            diagnostic("task.stage", "batch=${trace.id} ${trace.taskSummary(task.id)}")
             val logLines = mutableListOf<String>()
             AutoTaskProtocol.handle(result, this@AutoTaskService, task.name) { msg ->
                 AppLog.put("AutoTask[${task.id}] ${task.name}: $msg")
                 logLines.add(msg)
             }
             currentCoroutineContext().ensureActive()
-            val cost = System.currentTimeMillis() - startAt
+            val cost = SystemClock.elapsedRealtime() - startAt
             val detail = result?.toString()?.take(200)
             val msg = if (detail.isNullOrBlank()) {
                 "AutoTask[${task.id}] ${task.name} done (${cost}ms)."
@@ -401,6 +602,8 @@ class AutoTaskService : BaseService() {
             val lastRun = System.currentTimeMillis()
             val lastLog = buildLastLog(logLines, detail, cost, lastRun)
             currentCoroutineContext().ensureActive()
+            trace.stage(task.id, "persist")
+            diagnostic("task.stage", "batch=${trace.id} ${trace.taskSummary(task.id)}")
             AutoTask.update(task.id) {
                 it.copy(
                     lastRunAt = lastRun,
@@ -413,16 +616,23 @@ class AutoTaskService : BaseService() {
                 R.string.auto_task_last_run,
                 formatTime(lastRun)
             )
+            // Completed means the attempt returned, not that every refreshToc action succeeded.
+            outcome = AutoTaskBatchTrace.Outcome.COMPLETED
             AppLog.put(msg)
         } catch (error: Throwable) {
             if (AutoTaskBatchPolicy.isCancellation(error)) {
+                diagnostic("task.interrupted", "batch=${trace.id} ${trace.taskSummary(task.id)} " +
+                    "scopeActive=${currentCoroutineContext().isActive} error=${errorTypes(error)} completionRecorded=false")
                 AppLog.put("AutoTask[${task.id}] ${task.name} interrupted; completion not recorded")
                 // Re-throw service-scope cancellation, but treat a script-local cancellation as
                 // an interrupted task so this worker can continue with other due tasks.
                 currentCoroutineContext().ensureActive()
                 return
             }
+            diagnostic("task.error", "batch=${trace.id} ${trace.taskSummary(task.id)} error=${errorTypes(error)}")
             currentCoroutineContext().ensureActive()
+            outcome = AutoTaskBatchTrace.Outcome.FAILED
+            trace.stage(task.id, "persist_error")
             val msg = error.localizedMessage ?: error.toString()
             val lastRun = System.currentTimeMillis()
             val lastLog = buildErrorLog(msg, error, lastRun)
@@ -436,6 +646,9 @@ class AutoTaskService : BaseService() {
             completionStatus = getString(R.string.auto_task_failed, msg)
             AppLog.put("AutoTask[${task.id}] ${task.name} failed: $msg", error)
         } finally {
+            val taskSummary = trace.taskSummary(task.id)
+            trace.finish(task.id, outcome)
+            diagnostic("task.end", "batch=${trace.id} outcome=$outcome $taskSummary")
             markTaskFinished(task.id, completionStatus)
         }
     }
@@ -511,22 +724,29 @@ class AutoTaskService : BaseService() {
         AutoTask.buildErrorLog(msg, error, runAt)
 
     override fun startForegroundNotification() {
-        synchronized(notificationStateLock) {
-            notificationBuilder.setContentText(notificationContent)
-            val notification = notificationBuilder.build()
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                startForeground(
-                    NotificationId.AutoTaskService,
-                    notification,
-                    if (useAlarmFgsMode()) {
-                        ServiceInfo.FOREGROUND_SERVICE_TYPE_SHORT_SERVICE
-                    } else {
-                        ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
-                    }
-                )
-            } else {
-                startForeground(NotificationId.AutoTaskService, notification)
+        diagnostic("service.foreground_request", "type=${if (useAlarmFgsMode()) "shortService" else "dataSync"}")
+        try {
+            synchronized(notificationStateLock) {
+                notificationBuilder.setContentText(notificationContent)
+                val notification = notificationBuilder.build()
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    startForeground(
+                        NotificationId.AutoTaskService,
+                        notification,
+                        if (useAlarmFgsMode()) {
+                            ServiceInfo.FOREGROUND_SERVICE_TYPE_SHORT_SERVICE
+                        } else {
+                            ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
+                        }
+                    )
+                } else {
+                    startForeground(NotificationId.AutoTaskService, notification)
+                }
             }
+            diagnostic("service.foreground_started", "type=${if (useAlarmFgsMode()) "shortService" else "dataSync"}")
+        } catch (error: Throwable) {
+            diagnostic("service.foreground_failed", "error=${errorTypes(error)}")
+            throw error
         }
     }
 }

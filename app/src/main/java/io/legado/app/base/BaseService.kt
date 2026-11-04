@@ -137,10 +137,14 @@ abstract class BaseService : LifecycleService() {
                     throw error
                 }
                 LogUtils.e(simpleName, "startForegroundNotification denied: ${error.localizedMessage}")
+                onForegroundStartDenied(error)
                 false
             }
         )
     }
+
+    /** Optional diagnostics; denial handling and service lifetime remain owned by this base class. */
+    protected open fun onForegroundStartDenied(error: Throwable) = Unit
 
     private fun isForegroundStartDenied(error: Throwable): Boolean {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
