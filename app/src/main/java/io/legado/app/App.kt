@@ -76,6 +76,8 @@ import io.legado.app.model.analyzeRule.BackstageWebViewFetcher
 import io.legado.app.model.analyzeRule.WebBookPreUpdateHook
 import io.legado.app.model.localBook.LocalBookAndroidDelegate
 import io.legado.app.model.webBook.WebBookAndroidDelegate
+import io.legado.app.service.AutoTaskProcessDiagnostics
+import io.legado.app.service.AutoTaskScheduler
 import io.legado.app.service.AutoTaskService
 import io.legado.app.ui.widget.dialog.CodeEditorWebViewPool
 import io.legado.app.utils.ACache
@@ -102,6 +104,7 @@ class App : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        AutoTaskProcessDiagnostics.recordOnProcessStart(this)
         SharedLog.isDebug = BuildConfig.DEBUG
         SharedLog.put = { message, throwable -> AppLog.put(message, throwable) }
         BigVariableStore.putBookVariable = RuleBigDataHelp::putBookVariable
@@ -193,9 +196,9 @@ class App : Application() {
                 .enableLogger(BuildConfig.DEBUG || AppConfig.recordLog)
                 .setLogger(EventLogger())
             DefaultData.upVersion()
+            URL.setURLStreamHandlerFactory(ObsoleteUrlFactory(okHttpClient))
             AppFreezeMonitor.init(this@App)
             DispatchersMonitor.init()
-            URL.setURLStreamHandlerFactory(ObsoleteUrlFactory(okHttpClient))
             launch { installGmsTlsProvider(appCtx) }
             //初始化封面
             BookCover.toString()
@@ -221,11 +224,12 @@ class App : Application() {
             }
             //调整排序序号
             SourceHelp.adjustSortNumber()
+            AutoTaskScheduler.onAppReady(this@App)
             //同步阅读记录
             if (AppConfig.syncBookProgress) {
                 AppWebDav.downloadAllBookProgress()
             }
-            if (getPrefBoolean(PreferKey.autoTaskService)) {
+            if (!AutoTaskScheduler.usesAlarms() && getPrefBoolean(PreferKey.autoTaskService)) {
                 AutoTaskService.start(appCtx)
             }
         }

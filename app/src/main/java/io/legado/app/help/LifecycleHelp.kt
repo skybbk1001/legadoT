@@ -4,6 +4,7 @@ import android.app.Activity
 import android.app.Application
 import android.os.Bundle
 import io.legado.app.base.BaseService
+import io.legado.app.service.AutoTaskScheduler
 import io.legado.app.utils.LogUtils
 import java.lang.ref.WeakReference
 
@@ -69,11 +70,13 @@ object LifecycleHelp : Application.ActivityLifecycleCallbacks {
 
     override fun onActivityPaused(activity: Activity) {
         LogUtils.d(TAG, "${activity::class.simpleName} onPause")
+        AutoTaskScheduler.onAppBackground()
     }
 
     override fun onActivityResumed(activity: Activity) {
         LogUtils.d(TAG, "${activity::class.simpleName} onResume")
         topActivityRef = WeakReference(activity)
+        AutoTaskScheduler.onAppForeground(activity.applicationContext)
     }
 
     override fun onActivityStarted(activity: Activity) {

@@ -1,7 +1,6 @@
 package io.legado.app.service
 
 import android.app.AlarmManager
-import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
@@ -9,7 +8,6 @@ import android.os.Build
 import android.os.PowerManager
 import android.os.Process
 import android.os.SystemClock
-import androidx.annotation.RequiresApi
 import androidx.core.app.NotificationCompat
 import androidx.lifecycle.lifecycleScope
 import io.legado.app.BuildConfig
@@ -29,7 +27,6 @@ import io.legado.app.utils.CronSchedule
 import io.legado.app.utils.getPrefBoolean
 import io.legado.app.utils.putPrefBoolean
 import io.legado.app.utils.startForegroundServiceCompat
-import io.legado.app.utils.startService
 import io.legado.app.utils.servicePendingIntent
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -52,11 +49,13 @@ import java.util.concurrent.atomic.AtomicInteger
 class AutoTaskService : BaseService() {
 
     companion object {
-        private const val ALARM_REQUEST_CODE = 100108
         private const val DATA_SYNC_IDLE_CHECK_MS = 60_000L
         private const val DATA_SYNC_MIN_DELAY_MS = 1_000L
         private const val DIAGNOSTIC_HEARTBEAT_MS = 30_000L
-        private const val EXTRA_DIAGNOSTIC_ALARM_AT = "autoTaskDiagnosticAlarmAt"
+
+        @Volatile
+        internal var hasLiveInstance = false
+            private set
 
         var isRun = false
             private set
@@ -66,10 +65,10 @@ class AutoTaskService : BaseService() {
         }
 
         fun stop(context: Context) {
+            context.putPrefBoolean(PreferKey.autoTaskService, false)
+            AutoTaskScheduler.cancel(context, "user_stop_request")
             dispatchLogged(IntentAction.stop) {
-                context.startService<AutoTaskService> {
-                    action = IntentAction.stop
-                }
+                context.stopService(Intent(context, AutoTaskService::class.java))
             }
         }
 
@@ -81,6 +80,10 @@ class AutoTaskService : BaseService() {
             context: Context,
             action: String
         ) {
+            if (AutoTaskScheduler.usesAlarms()) {
+                AutoTaskScheduler.requestStart(context, action)
+                return
+            }
             val intent = Intent(context, AutoTaskService::class.java).apply {
                 this.action = action
             }
@@ -135,6 +138,7 @@ class AutoTaskService : BaseService() {
     }
 
     override fun onCreate() {
+        hasLiveInstance = true
         diagnostic("service.create", "sdk=${Build.VERSION.SDK_INT} " +
             "version=${BuildConfig.VERSION_NAME} code=${BuildConfig.VERSION_CODE} " +
             "mode=${if (useAlarmFgsMode()) "alarm_short_service" else "data_sync_loop"}")
@@ -152,8 +156,10 @@ class AutoTaskService : BaseService() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        val scheduledAt = intent?.getLongExtra(EXTRA_DIAGNOSTIC_ALARM_AT, 0L) ?: 0L
+        val scheduledAt = intent?.getLongExtra(AutoTaskScheduler.EXTRA_SCHEDULED_AT, 0L) ?: 0L
+        val recovery = intent?.getBooleanExtra(AutoTaskScheduler.EXTRA_RECOVERY, false) == true
         val trigger = when {
+            scheduledAt > 0L && recovery -> "recovery_alarm"
             scheduledAt > 0L -> "alarm"
             intent?.action == IntentAction.start -> "start"
             intent?.action == IntentAction.stop -> "stop"
@@ -174,7 +180,7 @@ class AutoTaskService : BaseService() {
 
         val result = super.onStartCommand(intent, flags, startId)
         if (result == START_NOT_STICKY) {
-            diagnostic("service.start_rejected", "startId=$startId nextWakeNotRearmed=true ${runtimeSnapshot()}")
+            diagnostic("service.start_rejected", "startId=$startId recoveryOwner=scheduler ${runtimeSnapshot()}")
             return result
         }
         if (useAlarmFgsMode()) {
@@ -193,6 +199,7 @@ class AutoTaskService : BaseService() {
 
     override fun onForegroundStartDenied(error: Throwable) {
         lastStopRequest = "foreground_denied"
+        if (useAlarmFgsMode()) AutoTaskScheduler.noteStartFailure(this)
         diagnostic("service.foreground_denied", "error=${errorTypes(error)} " +
             "${permissionState()} ${runtimeSnapshot()}")
     }
@@ -212,6 +219,7 @@ class AutoTaskService : BaseService() {
     override fun onDestroy() {
         // Snapshot before cancellation: otherwise an unfinished batch may already look empty.
         diagnostic("service.destroy", "lastStopRequest=$lastStopRequest ${runtimeSnapshot()}")
+        hasLiveInstance = false
         diagnosticHeartbeat?.cancel()
         diagnosticHeartbeat = null
         isRun = false
@@ -257,6 +265,10 @@ class AutoTaskService : BaseService() {
                 diagnostic("cycle.begin", "cycle=$cycle trigger=$trigger " +
                     "lockWaitMs=${SystemClock.elapsedRealtime() - queuedAt}")
                 try {
+                    if (!getPrefBoolean(PreferKey.autoTaskService)) {
+                        outcome = "disabled"
+                        return@withLock
+                    }
                     if (scheduleAlarm) {
                         schedulerPhase = "scheduling"
                         // Preserve pre-scheduling: timeout must not prevent the next cron alarm.
@@ -432,34 +444,11 @@ class AutoTaskService : BaseService() {
         }
     }
 
-    private fun scheduleNextRunFromRules() {
+    private suspend fun scheduleNextRunFromRules() {
         if (!useAlarmFgsMode()) return
-        val nextRunAt = computeNextAlarmAt(AutoTask.getRules(), System.currentTimeMillis())
-        if (nextRunAt == null) {
-            cancelNextAlarm("no_future_cron")
-            return
-        }
-        scheduleNextAlarm(nextRunAt)
-    }
-
-    /**
-     * 计算下一次闹钟触发时间：取所有启用任务在 [fromTime] 之后最近的一次 cron 触发点。
-     *
-     * 对本批已处理完到期任务，以当前时刻为基准，排到下一个未来触发点。
-     */
-    private fun computeNextAlarmAt(rules: List<AutoTaskRule>, fromTime: Long): Long? {
-        val enabled = rules.filter { it.enable }
-        if (enabled.isEmpty()) return null
-        var nextRunAt: Long? = null
-        enabled.forEach { task ->
-            val cron = task.cron?.trim().orEmpty()
-            if (cron.isBlank()) return@forEach
-            val schedule = CronSchedule.parse(cron) ?: return@forEach
-            val next = schedule.nextTimeAfter(fromTime) ?: return@forEach
-            val current = nextRunAt
-            nextRunAt = if (current == null) next else minOf(current, next)
-        }
-        return nextRunAt
+        val next = AutoTaskScheduler.scheduleFromRules(this)
+        nextAlarmDescription = next?.toString() ?: "not_published"
+        next?.let { AppLog.put("AutoTask next run at ${formatTime(it)}") }
     }
 
     private fun computeNextRunAt(rules: List<AutoTaskRule>): Long? {
@@ -479,56 +468,9 @@ class AutoTaskService : BaseService() {
         return nextRunAt
     }
 
-    @RequiresApi(Build.VERSION_CODES.VANILLA_ICE_CREAM)
-    private fun scheduleNextAlarm(triggerAt: Long) {
-        if (!useAlarmFgsMode()) return
-        val alarmManager = getSystemService(AlarmManager::class.java)
-        if (alarmManager == null) {
-            diagnostic("alarm.schedule_failed", "reason=alarm_manager_unavailable triggerAt=$triggerAt")
-            return
-        }
-        val triggerAtMs = triggerAt.coerceAtLeast(System.currentTimeMillis() + 1000L)
-        kotlin.runCatching {
-            val pendingIntent = buildAlarmPendingIntent(triggerAtMs)
-            val exact = alarmManager.canScheduleExactAlarms()
-            diagnostic("alarm.schedule_request", "triggerAt=$triggerAtMs " +
-                "delayMs=${triggerAtMs - System.currentTimeMillis()} exact=$exact ${permissionState()}")
-            if (exact) {
-                alarmManager.setExactAndAllowWhileIdle(
-                    AlarmManager.RTC_WAKEUP,
-                    triggerAtMs,
-                    pendingIntent
-                )
-            } else {
-                alarmManager.setAndAllowWhileIdle(
-                    AlarmManager.RTC_WAKEUP,
-                    triggerAtMs,
-                    pendingIntent
-                )
-            }
-            nextAlarmDescription = "$triggerAtMs/exact:$exact"
-            diagnostic("alarm.scheduled", "triggerAt=$triggerAtMs exact=$exact")
-            AppLog.put("AutoTask next run at ${formatTime(triggerAtMs)}")
-        }.onFailure { error ->
-            diagnostic("alarm.schedule_failed", "triggerAt=$triggerAtMs error=${errorTypes(error)}")
-            AppLog.put("AutoTask schedule alarm failed", error)
-        }
-    }
-
     private fun cancelNextAlarm(reason: String) {
-        val alarmManager = getSystemService(AlarmManager::class.java)
-        if (alarmManager == null) {
-            diagnostic("alarm.cancel_failed", "reason=$reason error=alarm_manager_unavailable")
-            return
-        }
-        try {
-            alarmManager.cancel(buildAlarmPendingIntent())
-            nextAlarmDescription = "cancelled"
-            diagnostic("alarm.cancelled", "reason=$reason")
-        } catch (error: Throwable) {
-            diagnostic("alarm.cancel_failed", "reason=$reason error=${errorTypes(error)}")
-            throw error
-        }
+        AutoTaskScheduler.cancel(this, reason)
+        nextAlarmDescription = "cancelled"
     }
 
     /** Android 15 起用闹钟驱动 shortService 单次唤醒，而不是常驻循环。 */
@@ -542,19 +484,6 @@ class AutoTaskService : BaseService() {
 
     private fun hasEnabledRule(): Boolean {
         return hasEnabledRule(AutoTask.getRules())
-    }
-
-    private fun buildAlarmPendingIntent(triggerAt: Long? = null): PendingIntent {
-        val flags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        return PendingIntent.getService(
-            this,
-            ALARM_REQUEST_CODE,
-            Intent(this, AutoTaskService::class.java).apply {
-                action = IntentAction.refreshSchedule
-                triggerAt?.let { putExtra(EXTRA_DIAGNOSTIC_ALARM_AT, it) }
-            },
-            flags
-        )
     }
 
     private suspend fun runTask(task: AutoTaskRule, trace: AutoTaskBatchTrace) {
