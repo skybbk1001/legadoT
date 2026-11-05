@@ -32,7 +32,8 @@ private val blockedWebViewHeaderNames = setOf(
     "taskcookiescope",
     // 目标主机由 URL 决定，覆盖可能导致虚拟主机路由错误
     "host",
-    // 代理连接由平台处理
+    // 代理连接由平台处理，proxy 是书源内部配置，不应发送给网站
+    "proxy",
     "proxy-connection",
     // 传输编码协商，手动设置可能导致响应解析异常
     "te",

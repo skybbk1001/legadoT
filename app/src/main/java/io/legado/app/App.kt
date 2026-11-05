@@ -9,6 +9,7 @@ import android.content.pm.ActivityInfo
 import android.content.pm.ApplicationInfo
 import android.content.res.Configuration
 import android.os.Build
+import android.webkit.WebView
 import com.github.liuyueyi.quick.transfer.constants.TransType
 import com.jeremyliao.liveeventbus.LiveEventBus
 import com.jeremyliao.liveeventbus.logger.DefaultLogger
@@ -86,6 +87,7 @@ import io.legado.app.utils.LogUtils
 import io.legado.app.utils.defaultSharedPreferences
 import io.legado.app.utils.getPrefBoolean
 import io.legado.app.utils.isDebuggable
+import io.legado.app.utils.isWebLoginProcess
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.chromium.base.ThreadUtils
@@ -104,6 +106,9 @@ class App : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        oldConfig = Configuration(resources.configuration)
+        // 登录子进程只运行浏览器；书源脚本、数据库、缓存、调度和服务都留在主进程。
+        if (isWebLoginProcess()) return
         AutoTaskProcessDiagnostics.recordOnProcessStart(this)
         SharedLog.isDebug = BuildConfig.DEBUG
         SharedLog.put = { message, throwable -> AppLog.put(message, throwable) }
@@ -236,13 +241,17 @@ class App : Application() {
     }
 
     override fun attachBaseContext(base: Context) {
+        // 早于 ContentProvider/Application 初始化，不能等到 Activity 创建后再设目录。
+        if (base.isWebLoginProcess() && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            WebView.setDataDirectorySuffix("web_login")
+        }
         super.attachBaseContext(AppContextWrapper.wrap(base))
     }
 
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
         val diff = newConfig.diff(oldConfig)
-        if ((diff and ActivityInfo.CONFIG_UI_MODE) != 0) {
+        if (!isWebLoginProcess() && (diff and ActivityInfo.CONFIG_UI_MODE) != 0) {
             applyDayNight(this)
         }
         oldConfig = Configuration(newConfig)

@@ -21,7 +21,6 @@ import java.net.Inet4Address
 import java.net.Inet6Address
 import java.net.InetSocketAddress
 import java.net.Proxy
-import java.net.URI
 import java.net.Socket
 import java.net.SocketAddress
 import java.net.SocketException
@@ -33,14 +32,6 @@ import javax.net.SocketFactory
 
 private val proxyClientCache: ConcurrentHashMap<String, OkHttpClient> by lazy {
     ConcurrentHashMap()
-}
-
-private const val PROXY_CONFIG_ERROR = "PROXY_CONFIG_ERROR"
-
-private enum class ProxyScheme {
-    HTTP,
-    SOCKS4,
-    SOCKS5
 }
 
 private data class Socks5Auth(
@@ -523,50 +514,4 @@ fun getProxyClient(proxy: String? = null): OkHttpClient {
     val proxyClient = builder.build()
     proxyClientCache[proxyValue] = proxyClient
     return proxyClient
-}
-
-private data class ProxyConfig(
-    val scheme: ProxyScheme,
-    val host: String,
-    val port: Int,
-    val username: String,
-    val password: String
-)
-
-private fun parseProxyConfig(proxy: String): ProxyConfig {
-    val uri = kotlin.runCatching { URI(proxy) }.getOrElse {
-        throw IllegalArgumentException(
-            "$PROXY_CONFIG_ERROR: proxy 格式错误: $proxy, 正确示例: socks5://user:pass@127.0.0.1:1080",
-            it
-        )
-    }
-    val scheme = uri.scheme?.lowercase()
-        ?: throw IllegalArgumentException("$PROXY_CONFIG_ERROR: proxy 缺少协议: $proxy")
-    val proxyScheme = when (scheme) {
-        "http" -> ProxyScheme.HTTP
-        "socks4" -> ProxyScheme.SOCKS4
-        "socks5" -> ProxyScheme.SOCKS5
-        else -> throw IllegalArgumentException("$PROXY_CONFIG_ERROR: 不支持的 proxy 协议: $scheme")
-    }
-    val host = uri.host?.trim().orEmpty()
-    val port = uri.port
-    if (host.isEmpty() || port !in 1..65535) {
-        throw IllegalArgumentException("$PROXY_CONFIG_ERROR: proxy 主机或端口错误: $proxy")
-    }
-    val userInfo = uri.userInfo.orEmpty()
-    if (userInfo.isEmpty()) {
-        return ProxyConfig(proxyScheme, host, port, "", "")
-    }
-    val auth = userInfo.split(":", limit = 2)
-    if (auth.size != 2 || auth[0].isEmpty() || auth[1].isEmpty()) {
-        throw IllegalArgumentException(
-            "$PROXY_CONFIG_ERROR: proxy 认证格式错误, 需使用 username:password, 不支持仅用户名: $proxy"
-        )
-    }
-    if (proxyScheme == ProxyScheme.SOCKS4) {
-        throw IllegalArgumentException(
-            "$PROXY_CONFIG_ERROR: socks4 不支持用户名密码认证, 请使用 socks5://username:password@host:port"
-        )
-    }
-    return ProxyConfig(proxyScheme, host, port, auth[0], auth[1])
 }

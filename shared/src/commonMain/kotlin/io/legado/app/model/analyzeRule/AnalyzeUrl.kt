@@ -131,9 +131,12 @@ class AnalyzeUrl(
             source?.getHeaderMap(hasLoginHeader && isLoginHeaderSite(mUrl))
         })?.let {
             headerMap.putAll(it)
-            if (it.containsKey("proxy")) {
-                proxy = it["proxy"]
-                headerMap.remove("proxy")
+            val proxyEntries = headerMap.entries.filter { it.key.trim().equals("proxy", true) }
+            if (proxyEntries.isNotEmpty()) {
+                val distinctProxyValues = proxyEntries.map { it.value.trim() }.distinct()
+                require(distinctProxyValues.size <= 1) { "PROXY_CONFIG_ERROR: 存在冲突的 proxy 请求头" }
+                proxy = distinctProxyValues.firstOrNull()?.takeIf { it.isNotEmpty() }
+                proxyEntries.forEach { headerMap.remove(it.key) }
             }
         }
         initUrl()

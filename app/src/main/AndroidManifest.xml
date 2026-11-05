@@ -338,6 +338,15 @@
             android:configChanges="orientation|screenSize"
             android:hardwareAccelerated="true"
             android:theme="@style/AppTheme.Transparent" />
+        <!-- Android 9+ 的 WebView 登录隔离进程；入口由 SourceLoginActivity 转发 -->
+        <activity
+            android:name="io.legado.app.ui.login.SourceLoginProxyActivity"
+            android:configChanges="orientation|screenSize"
+            android:exported="false"
+            android:hardwareAccelerated="true"
+            android:process=":web_login"
+            android:windowSoftInputMode="adjustResize"
+            android:theme="@android:style/Theme.Material.Light.NoActionBar" />
         <!-- 阅读记录 -->
         <activity
             android:name=".ui.about.ReadRecordActivity"
@@ -576,11 +585,13 @@
             android:authorities="${applicationId}.readerProvider"
             android:enabled="true"
             android:exported="true"
+            android:process="${applicationId}"
             tools:ignore="ExportedContentProvider" />
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileProvider"
             android:exported="false"
+            android:process="${applicationId}"
             android:grantUriPermissions="true">
             <meta-data
                 android:name="android.support.FILE_PROVIDER_PATHS"
@@ -590,6 +601,7 @@
             android:name="androidx.startup.InitializationProvider"
             android:authorities="${applicationId}.androidx-startup"
             android:exported="false"
+            android:process="${applicationId}"
             tools:node="merge">
             <meta-data
                 android:name="androidx.emoji2.text.EmojiCompatInitializer"

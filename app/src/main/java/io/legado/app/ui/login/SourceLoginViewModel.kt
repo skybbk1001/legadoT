@@ -13,11 +13,13 @@ import io.legado.app.data.entities.BookSource
 import io.legado.app.model.AutoTask
 import io.legado.app.exception.NoStackTraceException
 import io.legado.app.utils.toastOnUi
+import io.legado.app.help.http.withoutProxyHeader
 
 class SourceLoginViewModel(application: Application) : BaseViewModel(application) {
 
     var source: BaseSource? = null
     var headerMap: Map<String, String> = emptyMap()
+    var proxy: String? = null
 
     /** 触发登录的书籍上下文:仅从带 bookUrl 的入口(阅读页/详情页/听书页)进入时非空 */
     var book: Book? = null
@@ -49,9 +51,12 @@ class SourceLoginViewModel(application: Application) : BaseViewModel(application
                     }
                 }
             }
-            headerMap = runScriptWithContext {
+            val headers = runScriptWithContext {
                 source?.getHeaderMap(true) ?: emptyMap()
             }
+            val (sourceProxy, webViewHeaders) = headers.withoutProxyHeader()
+            proxy = sourceProxy
+            headerMap = webViewHeaders
             loadBookContext(intent)
             source
         }.onSuccess {
