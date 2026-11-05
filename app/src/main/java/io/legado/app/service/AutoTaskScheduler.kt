@@ -9,6 +9,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.os.Process
+import android.os.SystemClock
 import androidx.core.content.ContextCompat
 import io.legado.app.R
 import io.legado.app.constant.AppConst
@@ -26,6 +27,7 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.util.concurrent.atomic.AtomicBoolean
 
 /** Alarm delivery/recovery owns no task jobs. All rule work remains in AutoTaskService. */
@@ -144,8 +146,10 @@ internal object AutoTaskScheduler {
     fun cancel(context: Context, reason: String) {
         val app = context.applicationContext
         launchSafely {
-            if (usesAlarms()) controller(app).cancelWhenDisabled(reason)
-            else controller(app).cancel(reason)
+            if (!usesAlarms() || !hasScheduledRules()) controller(app).cancel(reason)
+            else controller(app).cancelWhenDisabled(reason)
+            if (!app.getPrefBoolean(PreferKey.autoTaskService)) AutoTaskContinuationStore(app).clear()
+            syncRecoveryWork(app)
         }
     }
 
@@ -157,6 +161,10 @@ internal object AutoTaskScheduler {
     /** Called by a short-lived receiver; no DB or JS work before the next wake is armed. */
     fun receive(context: Context, intent: Intent, finished: () -> Unit) {
         val app = context.applicationContext
+        val enteredAt = SystemClock.elapsedRealtime()
+        // On the receiver thread, before IO dispatch: distinguishes delivery from delayed application work.
+        log("alarm.receiver_enter", "action=${AutoTaskBatchTrace.field(intent.action)} " +
+            "generation=${intent.getLongExtra(EXTRA_GENERATION, -1)} elapsedAt=$enteredAt")
         val deadline = try {
             AutoTaskReceiverDeadline(finished, { log("alarm.receiver_timeout", "budgetMs=8000") })
         } catch (error: Exception) {
@@ -165,6 +173,7 @@ internal object AutoTaskScheduler {
             return
         }
         receiverScope.launch {
+            log("alarm.worker_enter", "dispatchDelayMs=${SystemClock.elapsedRealtime() - enteredAt} deadlineExpired=${deadline.isFinished}")
             try {
                 if (!usesAlarms()) return@launch
                 val action = intent.action
@@ -179,13 +188,19 @@ internal object AutoTaskScheduler {
                     }
                 } else {
                     // Boot/package/time/permission events repair the plan, never run user scripts here.
-                    controller(app).schedule(System.currentTimeMillis() + AutoTaskWakeController.RESTORE_DELAY_MS, "system_restore")
+                    // Boot/update can erase OS alarms while future persisted timestamps remain.
+                    // Therefore force re-arm (not a healthy-plan skip), but preserve an earlier wake.
+                    val control = controller(app)
+                    val now = System.currentTimeMillis()
+                    val earlier = control.snapshot().primaryAt.takeIf { it > now } ?: Long.MAX_VALUE
+                    control.schedule(minOf(earlier, now + AutoTaskWakeController.RESTORE_DELAY_MS), "system_restore")
                     log("recovery.system_event", "action=${AutoTaskBatchTrace.field(action)}")
                 }
             } catch (error: Exception) {
                 log("alarm.receiver_failed", "error=${error.javaClass.simpleName}")
             } finally {
                 deadline.complete()
+                launchSafely { syncRecoveryWork(app) }
             }
         }
     }
@@ -193,7 +208,13 @@ internal object AutoTaskScheduler {
     fun requestStart(context: Context, action: String) {
         val app = context.applicationContext
         launchSafely {
-            controller(app).requestStart(action) { startForeground(app, action) }
+            syncRecoveryWork(app)
+            if (foreground.get()) {
+                controller(app).requestStart(action) { startForeground(app, action) }
+            } else if (app.getPrefBoolean(PreferKey.autoTaskService) && hasScheduledRules()) {
+                // Imports/MCP/script calls can change rules in the background; no FGS exemption.
+                controller(app).requestContinuation("background_request")
+            }
         }
     }
 
@@ -220,16 +241,10 @@ internal object AutoTaskScheduler {
     fun onAppReady(context: Context) {
         val app = context.applicationContext
         launchSafely {
+            syncRecoveryWork(app)
             if (!app.getPrefBoolean(PreferKey.autoTaskService)) return@launchSafely
             if (!usesAlarms()) return@launchSafely
-            val control = controller(app)
-            val state = control.snapshot()
-            val now = System.currentTimeMillis()
-            val stale = state.installing || state.needsRecovery ||
-                maxOf(state.primaryAt, state.recoveryAt) < now - AutoTaskWakeController.MISSED_GRACE_MS
-            if (stale && !AutoTaskService.hasLiveInstance) {
-                control.publishPlan(state.generation, now + AutoTaskWakeController.RESTORE_DELAY_MS, "process_bootstrap")
-            }
+            controller(app).reconcileBackground("process_bootstrap") { AutoTaskService.hasLiveInstance }
             recoverForeground(app)
         }
     }
@@ -239,7 +254,10 @@ internal object AutoTaskScheduler {
         foreground.set(true)
         if (!usesAlarms()) return
         val app = context.applicationContext
-        launchSafely { recoverForeground(app) }
+        launchSafely {
+            syncRecoveryWork(app)
+            recoverForeground(app)
+        }
     }
 
     fun onAppBackground() { foreground.set(false) }
@@ -250,6 +268,44 @@ internal object AutoTaskScheduler {
         controller(context).recoverForeground(force, { AutoTaskService.hasLiveInstance }) {
             startForeground(context, IntentAction.refreshSchedule)
         }
+    }
+
+    /** Background repair never claims an exemption to start a foreground service. */
+    suspend fun reconcileFromBackground(context: Context, reason: String): Boolean = withContext(Dispatchers.IO) {
+        if (!usesAlarms() || !hasScheduledRules()) return@withContext false
+        val control = controller(context.applicationContext)
+        val repaired = control.reconcileBackground(reason) { AutoTaskService.hasLiveInstance }
+        val state = control.snapshot()
+        if (context.getPrefBoolean(PreferKey.autoTaskService) && !AutoTaskService.hasLiveInstance &&
+            (state.needsRecovery || state.installing) && maxOf(state.primaryAt, state.recoveryAt) <= System.currentTimeMillis()) {
+            error("AutoTask background repair failed; no future wake installed")
+        }
+        repaired
+    }
+
+    fun requestBackgroundReconcile(context: Context, reason: String) {
+        val app = context.applicationContext
+        if (!usesAlarms()) return
+        launchSafely {
+            if (hasScheduledRules()) controller(app).reconcileBackground(reason) { AutoTaskService.hasLiveInstance }
+        }
+    }
+
+    fun requestContinuation(context: Context, reason: String, notBefore: Long = 0) {
+        if (!usesAlarms()) return
+        val app = context.applicationContext
+        launchSafely { controller(app).requestContinuation(reason, notBefore) }
+    }
+
+    internal fun hasScheduledRules(): Boolean = AutoTask.getRules().any {
+        it.enable && CronSchedule.parse(it.cron?.trim().orEmpty()) != null
+    }
+
+    private fun syncRecoveryWork(context: Context) {
+        runCatching { AutoTaskRecoveryWorker.sync(context) }.onFailure {
+            log("recovery.worker_registration_failed", "error=${it.javaClass.simpleName}")
+        }
+        AutoTaskRecoveryMonitor.sync(context)
     }
 
     private fun launchSafely(block: () -> Unit) {

@@ -30,6 +30,12 @@ internal class AutoTaskWakeController(
 
     private var lastDispatchAt: Long? = null
 
+    /**
+     * Repair bookkeeping only. Deliberately separate from [lastDispatchAt] so a repair backoff can
+     * never throttle (or be throttled by) a foreground dispatch.
+     */
+    private var lastRepairAt: Long? = null
+
     @Synchronized
     fun snapshot(): AutoTaskWakeState = load()
 
@@ -160,9 +166,88 @@ internal class AutoTaskWakeController(
         save(load().copy(needsRecovery = true))
     }
 
+    /**
+     * Background restore path: only re-installs alarms, never starts a service, worker or script.
+     *
+     * A plan the platform may still deliver is never postponed, so repeated calls from several
+     * entry points (boot, package replace, time change) converge instead of walking the plan
+     * forward. Repair attempts are rate limited by [lastRepairAt] alone, which keeps the
+     * foreground throttle ([lastDispatchAt]) untouched.
+     *
+     * @return true only when a new plan was installed by this call.
+     */
+    @Synchronized
+    fun reconcileBackground(reason: String, serviceAlive: () -> Boolean): Boolean {
+        if (!enabled()) {
+            log("alarm.repair_skipped", "reason=$reason why=disabled")
+            return false
+        }
+        if (serviceAlive()) {
+            log("alarm.repair_skipped", "reason=$reason why=service_alive")
+            return false
+        }
+        val time = now()
+        val state = load()
+        // Replacing a pending alarm with a later one only loses a wake-up, so nothing is ever
+        // moved forward: any still-future time wins, whatever the reason we were called for.
+        // That covers a healthy plan, a late primary with a working backup, and the surviving
+        // backup after a partial install (needsRecovery must not walk it backwards).
+        // `installing` is the single exception: those times may be intent that never reached the
+        // platform, so they are re-armed instead of trusted.
+        val pendingFuture = listOf(state.primaryAt, state.recoveryAt).any { it > time }
+        if (pendingFuture && !state.installing) {
+            log("alarm.repair_skipped", "reason=$reason why=plan_pending primaryAt=${state.primaryAt} " +
+                "recoveryAt=${state.recoveryAt} needsRecovery=${state.needsRecovery}")
+            return false
+        }
+        val latest = maxOf(state.primaryAt, state.recoveryAt)
+        val absent = latest <= 0L
+        val expired = !absent && time > latest + MISSED_GRACE_MS
+        // Repair only when nothing deliverable is armed: unknown plan, failed install, or a plan
+        // whose grace window has fully passed. Times still inside the window may yet fire.
+        if (!absent && !expired && !state.needsRecovery && !state.installing) {
+            log("alarm.repair_skipped", "reason=$reason why=within_grace latest=$latest")
+            return false
+        }
+        if (lastRepairAt?.let { time - it in 0 until REPAIR_THROTTLE_MS } == true) {
+            log("alarm.repair_skipped", "reason=$reason why=throttled")
+            return false
+        }
+        lastRepairAt = time
+        val repaired = schedule(time + RESTORE_DELAY_MS, "background_repair:$reason")
+        if (!repaired) log("alarm.repair_failed", "reason=$reason latest=$latest")
+        return repaired
+    }
+
+    /**
+     * Continuation for a service whose execution budget ran out: brings the next wake forward to
+     * now + [RESTORE_DELAY_MS] but never past an already planned earlier alarm, and never starts
+     * the service itself. The generation counter still invalidates older producers.
+     */
+    @Synchronized
+    fun requestContinuation(reason: String, notBefore: Long = 0): Boolean {
+        if (!enabled()) {
+            log("alarm.continuation_skipped", "reason=$reason why=disabled")
+            return false
+        }
+        val time = now()
+        val state = load()
+        val candidate = maxOf(time + RESTORE_DELAY_MS, notBefore)
+        val plannedNext = listOf(state.primaryAt, state.recoveryAt).filter { it > time }.minOrNull()
+        if (plannedNext != null && plannedNext <= candidate) {
+            log("alarm.continuation_skipped", "reason=$reason why=plan_earlier plannedNext=$plannedNext")
+            return false
+        }
+        val resumed = schedule(candidate, "continuation:$reason")
+        if (!resumed) log("alarm.continuation_failed", "reason=$reason candidate=$candidate")
+        return resumed
+    }
+
     private fun dispatchWithFallback(reason: String, start: () -> Unit): Boolean {
         // A five-minute retry is bounded and also covers failures before service.onStartCommand.
-        schedule(now() + RETRY_DELAY_MS, "${reason}_fallback")
+        val time = now()
+        val pending = load().primaryAt.takeIf { it > time }
+        schedule(minOf(pending ?: Long.MAX_VALUE, time + RETRY_DELAY_MS), "${reason}_fallback")
         if (!enabled()) return false
         lastDispatchAt = now()
         return try {
@@ -183,5 +268,6 @@ internal class AutoTaskWakeController(
         const val RECOVERY_DELAY_MS = 5 * 60_000L
         const val MISSED_GRACE_MS = 30_000L
         const val FOREGROUND_THROTTLE_MS = 30_000L
+        const val REPAIR_THROTTLE_MS = 30_000L
     }
 }

@@ -40,6 +40,22 @@ class AutoTaskBatchRunnerTest {
     }
 
     @Test
+    fun sliceCancellationStopsTakingNewItemsAndReleasesActiveActions() = runBlocking {
+        val started = AtomicInteger()
+        val released = AtomicInteger()
+        val result = kotlinx.coroutines.withTimeoutOrNull(100) {
+            AutoTaskBatchRunner.run((1..50).toList(), 2) {
+                started.incrementAndGet()
+                try { delay(10_000) } finally { released.incrementAndGet() }
+            }
+            true
+        }
+        assertEquals(null, result)
+        assertTrue(started.get() <= 2)
+        assertEquals(started.get(), released.get())
+    }
+
+    @Test
     fun rejectsZeroConcurrency() = runBlocking {
         val failure = runCatching {
             AutoTaskBatchRunner.run(listOf(1), maxConcurrency = 0) {}

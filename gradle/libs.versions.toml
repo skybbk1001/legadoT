@@ -65,6 +65,7 @@ rhino = "5.3.0-legado.3"
 media3 = "1.8.0"
 
 #noinspection GradleDependency
+work = "2.10.1"
 webkit = "1.14.0"
 #noinspection GradleDependency
 activity = "1.11.0"
@@ -171,6 +172,7 @@ androidx-runner = { module = "androidx.test:runner", version = "1.6.2" }
 androidx-swiperefreshlayout = { module = "androidx.swiperefreshlayout:swiperefreshlayout", version.ref = "swiperefreshlayout" }
 androidx-recyclerview = { module = "androidx.recyclerview:recyclerview", version.ref = "recyclerview" }
 androidx-viewpager2 = { module = "androidx.viewpager2:viewpager2", version.ref = "viewpager2" }
+androidx-work = { module = "androidx.work:work-runtime-ktx", version.ref = "work" }
 androidx-webkit = { module = "androidx.webkit:webkit", version.ref = "webkit" }
 androidx-documentfile = { module = "androidx.documentfile:documentfile", version.ref = "documentfile" }
 androidx-exifinterface = { module = "androidx.exifinterface:exifinterface", version.ref = "exifinterface" }
